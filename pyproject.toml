@@ -1,0 +1,30 @@
+[project]
+name = "mongospec"
+version = "0.0.1"
+authors = [{name = "Diprog"}]
+description = "Async MongoDB ODM with msgspec integration and automatic collection binding"
+readme = "README.md"
+requires-python = ">=3.13"
+license = {text = "MIT"}
+dependencies = [
+    "mongojet~=0.3.1",
+    "msgspec~=0.19.0",
+]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Database",
+    "Typing :: Typed"
+]
+
+[project.urls]
+repository = "https://github.com/diprog/mongospec"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["mongospec"]
