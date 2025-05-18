@@ -95,7 +95,7 @@ class FindOperationsMixin(BaseOperations):
         return await cls.find_one({"_id": document_id}, **kwargs)
 
     @classmethod
-    def find(
+    async def find(
             cls: type[TDocument],
             filter: dict | None = None,
             batch_size: int = 100,
@@ -112,10 +112,10 @@ class FindOperationsMixin(BaseOperations):
         .. code-block:: python
 
             # Iterate over large result set efficiently
-            async for user in User.find({"age": {"$gt": 30}}, batch_size=500):
+            async for user in await User.find({"age": {"$gt": 30}}, batch_size=500):
                 process_user(user)
         """
-        cursor = cls._get_collection().find(filter or {}, **kwargs)
+        cursor = await cls._get_collection().find(filter or {}, **kwargs)
         return AsyncDocumentCursor[TDocument](cursor, cls, batch_size)
 
     @classmethod
