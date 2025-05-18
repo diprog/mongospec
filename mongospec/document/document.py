@@ -13,13 +13,15 @@ from bson import ObjectId
 from mongojet import IndexModel
 
 from .operations import (
-    AsyncDocumentCursor, CountOperationsMixin, FindOperationsMixin, InsertOperationsMixin, UpdateOperationsMixin
+    AsyncDocumentCursor, CountOperationsMixin, DeleteOperationsMixin, FindOperationsMixin, InsertOperationsMixin,
+    UpdateOperationsMixin
 )
 
 
 class MongoDocument(
     msgspec.Struct,
     CountOperationsMixin,
+    DeleteOperationsMixin,
     AsyncDocumentCursor,
     FindOperationsMixin,
     InsertOperationsMixin,
