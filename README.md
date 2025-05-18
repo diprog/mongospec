@@ -1,5 +1,9 @@
 # mongospec
 
+[![PyPI](https://img.shields.io/pypi/v/mongospec?color=blue&label=PyPI%20package)](https://pypi.org/project/mongospec/)
+[![Python](https://img.shields.io/badge/python-3.13%2B-blue)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-MIT-green)](https://opensource.org/licenses/MIT)
+
 Minimal async MongoDB ODM built for **speed** and **simplicity**, featuring automatic collection binding and msgspec
 integration.
 
