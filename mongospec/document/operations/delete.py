@@ -40,7 +40,7 @@ class DeleteOperationsMixin(BaseOperations):
             {"_id": self._id},
             **kwargs
         )
-        return result.deleted_count
+        return result["deleted_count"]
 
     @classmethod
     async def delete_one(
@@ -61,7 +61,7 @@ class DeleteOperationsMixin(BaseOperations):
             await User.delete_one({"email": "inactive@example.com"})
         """
         result = await cls._get_collection().delete_one(filter, **kwargs)
-        return result.deleted_count
+        return result["deleted_count"]
 
     @classmethod
     async def delete_many(
@@ -82,7 +82,7 @@ class DeleteOperationsMixin(BaseOperations):
             await User.delete_many({"status": "banned"})
         """
         result = await cls._get_collection().delete_many(filter, **kwargs)
-        return result.deleted_count
+        return result["deleted_count"]
 
     @classmethod
     async def delete_by_id(
@@ -109,4 +109,4 @@ class DeleteOperationsMixin(BaseOperations):
             {"_id": document_id},
             **kwargs
         )
-        return result.deleted_count
+        return result["deleted_count"]

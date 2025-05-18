@@ -7,7 +7,7 @@ Provides all document insertion capabilities including:
 - Insert with validation
 """
 
-from typing import Any, List, Optional, TypeVar
+from typing import Any, List, Optional
 
 from bson import ObjectId
 
@@ -40,7 +40,7 @@ class InsertOperationsMixin(BaseOperations):
             self.dump(),
             **kwargs
         )
-        self._id = result.inserted_id
+        self._id = result["inserted_id"]
         return self
 
     @classmethod
@@ -68,7 +68,7 @@ class InsertOperationsMixin(BaseOperations):
             document.dump(),
             **kwargs
         )
-        document._id = result.inserted_id
+        document._id = result["inserted_id"]
         return document
 
     @classmethod
@@ -104,10 +104,10 @@ class InsertOperationsMixin(BaseOperations):
         )
 
         # Update documents with their new _ids
-        for doc, doc_id in zip(documents, result.inserted_ids):
+        for doc, doc_id in zip(documents, result["inserted_id"]):
             doc._id = doc_id
 
-        return result.inserted_ids
+        return result["inserted_id"]
 
     @classmethod
     async def insert_if_not_exists(

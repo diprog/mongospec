@@ -13,8 +13,7 @@ from bson import ObjectId
 from mongojet import IndexModel
 
 from .operations import (
-    AsyncDocumentCursor, CountOperationsMixin, DeleteOperationsMixin, FindOperationsMixin, InsertOperationsMixin,
-    UpdateOperationsMixin
+    CountOperationsMixin, DeleteOperationsMixin, FindOperationsMixin, InsertOperationsMixin, UpdateOperationsMixin
 )
 
 
@@ -22,7 +21,6 @@ class MongoDocument(
     msgspec.Struct,
     CountOperationsMixin,
     DeleteOperationsMixin,
-    AsyncDocumentCursor,
     FindOperationsMixin,
     InsertOperationsMixin,
     UpdateOperationsMixin,

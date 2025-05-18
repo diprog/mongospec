@@ -53,11 +53,11 @@ class UpdateOperationsMixin(BaseOperations):
             **kwargs
         )
 
-        if not upsert and result.matched_count == 0:
+        if not upsert and result["matched_count"] == 0:
             raise RuntimeError(f"Document {self._id} not found in collection")
 
-        if result.upserted_id:
-            self._id = result.upserted_id
+        if result["upserted_id"]:
+            self._id = result["upserted_id"]
 
         return self
 
@@ -85,7 +85,7 @@ class UpdateOperationsMixin(BaseOperations):
             )
         """
         result = await cls._get_collection().update_one(filter, update, **kwargs)
-        return result.modified_count
+        return result["modified_count"]
 
     @classmethod
     async def update_many(
@@ -103,7 +103,7 @@ class UpdateOperationsMixin(BaseOperations):
         :return: Number of modified documents
         """
         result = await cls._get_collection().update_many(filter, update, **kwargs)
-        return result.modified_count
+        return result["modified_count"]
 
     @classmethod
     async def update_by_id(
@@ -134,7 +134,7 @@ class UpdateOperationsMixin(BaseOperations):
             update,
             **kwargs
         )
-        return result.modified_count
+        return result["modified_count"]
 
     @classmethod
     async def find_one_and_update(

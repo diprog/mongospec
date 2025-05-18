@@ -41,7 +41,9 @@ async def init(
                 raise TypeError(f"{doc_type} must be a subclass of MongoDocument,")
 
             doc_type.__collection__ = get_collection(doc_type.get_collection_name())
-            await doc_type.__collection__.create_indexes(doc_type.__indexes__)
+
+            if doc_type.__indexes__:
+                await doc_type.__collection__.create_indexes(doc_type.__indexes__)
 
 async def close() -> None:
     """
