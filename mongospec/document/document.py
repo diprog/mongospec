@@ -12,14 +12,18 @@ import msgspec
 from bson import ObjectId
 from mongojet import IndexModel
 
-from .operations.find import FindOperationsMixin
-from .operations.insert import InsertOperationsMixin
+from .operations import (
+    AsyncDocumentCursor, CountOperationsMixin, FindOperationsMixin, InsertOperationsMixin, UpdateOperationsMixin
+)
 
 
 class MongoDocument(
     msgspec.Struct,
-    InsertOperationsMixin,
+    CountOperationsMixin,
+    AsyncDocumentCursor,
     FindOperationsMixin,
+    InsertOperationsMixin,
+    UpdateOperationsMixin,
     kw_only=True
 ):
     """
