@@ -7,7 +7,8 @@ Provides all document insertion capabilities including:
 - Insert with validation
 """
 
-from typing import Any, Optional, Sequence, Unpack
+from collections.abc import Sequence
+from typing import Unpack
 
 from bson import ObjectId
 from mongojet._types import Document, InsertManyOptions, InsertOneOptions
@@ -113,7 +114,7 @@ class InsertOperationsMixin(BaseOperations):
             document: T,
             filter: Document | str | None = None,
             **kwargs: Unpack[InsertOneOptions]
-    ) -> Optional[T]:
+    ) -> T | None:
         """
         Insert document only if matching document doesn't exist.
 

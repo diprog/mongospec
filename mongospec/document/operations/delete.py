@@ -7,7 +7,7 @@ Provides document deletion capabilities including:
 - Instance-based deletion
 """
 
-from typing import Any, Unpack
+from typing import Unpack
 
 from bson import ObjectId
 from mongojet._types import DeleteOptions, Document

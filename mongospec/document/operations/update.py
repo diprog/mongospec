@@ -7,7 +7,8 @@ Provides document modification capabilities including:
 - Atomic field updates with concurrency control
 """
 
-from typing import Any, Sequence, Unpack
+from collections.abc import Sequence
+from typing import Unpack
 
 from bson import ObjectId
 from mongojet._types import Document, FindOneAndUpdateOptions, ReplaceOptions, UpdateOptions
