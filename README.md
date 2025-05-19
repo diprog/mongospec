@@ -13,21 +13,21 @@ integration.
 - [Key Features](#key-features)
 - [Quick Start](#quick-start)
 - [Core Concepts](#core-concepts)
-  - [Document Models](#document-models)
-  - [Connection Management](#connection-management)
-  - [Collection Binding](#collection-binding)
-  - [Index Creation](#index-creation)
+    - [Document Models](#document-models)
+    - [Connection Management](#connection-management)
+    - [Collection Binding](#collection-binding)
+    - [Index Creation](#index-creation)
 - [CRUD Operations](#crud-operations)
-  - [Creating Documents](#creating-documents)
-  - [Reading Documents](#reading-documents)
-  - [Updating Documents](#updating-documents)
-  - [Deleting Documents](#deleting-documents)
-  - [Counting Documents](#counting-documents)
+    - [Creating Documents](#creating-documents)
+    - [Reading Documents](#reading-documents)
+    - [Updating Documents](#updating-documents)
+    - [Deleting Documents](#deleting-documents)
+    - [Counting Documents](#counting-documents)
 - [Advanced Usage](#advanced-usage)
-  - [Working with Cursors](#working-with-cursors)
-  - [Batch Operations](#batch-operations)
-  - [Atomic Updates](#atomic-updates)
-  - [Upsert Operations](#upsert-operations)
+    - [Working with Cursors](#working-with-cursors)
+    - [Batch Operations](#batch-operations)
+    - [Atomic Updates](#atomic-updates)
+    - [Upsert Operations](#upsert-operations)
 - [Performance Considerations](#performance-considerations)
 - [API Reference](#api-reference)
 - [Development Status](#development-status)
@@ -41,6 +41,7 @@ pip install mongospec
 ```
 
 Dependencies:
+
 - Python 3.13+
 - mongojet ~= 0.3.1
 - msgspec ~= 0.19.0
@@ -114,7 +115,8 @@ asyncio.run(main())
 
 ### Document Models
 
-Document models in mongospec are based on `msgspec.Struct` and define the schema for your MongoDB collections. Each model automatically maps to a collection and provides methods for CRUD operations.
+Document models in mongospec are based on `msgspec.Struct` and define the schema for your MongoDB collections. Each
+model automatically maps to a collection and provides methods for CRUD operations.
 
 ```python
 from datetime import datetime
@@ -130,12 +132,12 @@ from mongospec import MongoDocument
 class Product(MongoDocument):
     # Custom collection name (optional, defaults to class name)
     __collection_name__ = "products"
-    
+
     # MongoDB indexes to create
     __indexes__: ClassVar[List[Dict[str, Any]]] = [
         {"keys": [("sku", 1)], "options": {"unique": True}}
     ]
-    
+
     # Document fields (all typed)
     name: str
     price: float
@@ -144,7 +146,7 @@ class Product(MongoDocument):
     in_stock: bool = True
     created_at: datetime = msgspec.field(default_factory=datetime.now)
     updated_at: Optional[datetime] = None
-    
+
     # The _id field is already defined in MongoDocument
 ```
 
@@ -170,6 +172,7 @@ await mongospec.close()
 ### Collection Binding
 
 When you initialize mongospec with document types, it:
+
 1. Binds each document type to its corresponding collection
 2. Creates any defined indexes
 3. Makes all CRUD operations immediately available
@@ -193,10 +196,10 @@ class User(MongoDocument):
     __indexes__ = [
         # Simple unique index
         {"keys": [("email", 1)], "options": {"unique": True}},
-        
+
         # Compound index
         {"keys": [("last_name", 1), ("first_name", 1)], "options": {}},
-        
+
         # Text index
         {"keys": [("description", "text")], "options": {"weights": {"title": 10, "description": 5}}}
     ]
@@ -234,7 +237,7 @@ inserted_ids = await User.insert_many(users)
 # Conditional insert (only if not exists)
 user = User(name="Eve", email="eve@example.com")
 result = await User.insert_if_not_exists(
-    user, 
+    user,
     filter={"email": "eve@example.com"}
 )
 if result:
@@ -422,7 +425,8 @@ await User.update_one(
 
 mongospec is designed for high performance:
 
-- **Batch Operations**: Use `insert_many`, `update_many`, and `delete_many` for better performance with multiple documents
+- **Batch Operations**: Use `insert_many`, `update_many`, and `delete_many` for better performance with multiple
+  documents
 - **Projected Queries**: Limit returned fields when possible using projection
 - **Cursor Batching**: Set appropriate `batch_size` for large result sets
 - **Indexes**: Ensure proper indexes are defined for your query patterns
@@ -466,38 +470,40 @@ Instance methods:
 Class methods:
 
 - **Find Operations**
-  - `find_one(filter)` - Find single document
-  - `find_by_id(document_id)` - Find by ID
-  - `find(filter, batch_size=None)` - Create cursor for query
-  - `find_all()` - Get all documents
-  - `exists(filter)` - Check if documents exist
+    - `find_one(filter)` - Find single document
+    - `find_by_id(document_id)` - Find by ID
+    - `find(filter, batch_size=None)` - Create cursor for query
+    - `find_all()` - Get all documents
+    - `exists(filter)` - Check if documents exist
 
 - **Insert Operations**
-  - `insert_one(document)` - Insert single document
-  - `insert_many(documents, ordered=True)` - Insert multiple documents
-  - `insert_if_not_exists(document, filter=None)` - Conditional insert
+    - `insert_one(document)` - Insert single document
+    - `insert_many(documents, ordered=True)` - Insert multiple documents
+    - `insert_if_not_exists(document, filter=None)` - Conditional insert
 
 - **Update Operations**
-  - `update_one(filter, update)` - Update single document
-  - `update_many(filter, update)` - Update multiple documents
-  - `update_by_id(document_id, update)` - Update by ID
-  - `find_one_and_update(filter, update, return_updated=True)` - Atomic update
+    - `update_one(filter, update)` - Update single document
+    - `update_many(filter, update)` - Update multiple documents
+    - `update_by_id(document_id, update)` - Update by ID
+    - `find_one_and_update(filter, update, return_updated=True)` - Atomic update
 
 - **Delete Operations**
-  - `delete_one(filter)` - Delete single document
-  - `delete_many(filter)` - Delete multiple documents
-  - `delete_by_id(document_id)` - Delete by ID
+    - `delete_one(filter)` - Delete single document
+    - `delete_many(filter)` - Delete multiple documents
+    - `delete_by_id(document_id)` - Delete by ID
 
 - **Count Operations**
-  - `count_documents(filter=None)` - Count documents
-  - `estimated_document_count()` - Fast approximate count
-  - `count(filter=None)` - Count documents
+    - `count_documents(filter=None)` - Count documents
+    - `estimated_document_count()` - Fast approximate count
+    - `count(filter=None)` - Count documents
 
 ## Development Status
 
-mongospec is currently in **early alpha** stage. The API is subject to change, and while all basic CRUD operations are supported, some advanced features are still in development.
+mongospec is currently in **beta** stage. The core API is stable and all basic CRUD operations are fully supported.
+We're working on additional features and optimizations for future releases.
 
 Designed for:
+
 - Rapid prototyping
 - Performance-critical applications
 - Modern asyncio-based projects
