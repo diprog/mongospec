@@ -1,6 +1,6 @@
 [project]
 name = "mongospec"
-version = "0.0.7"
+version = "0.0.8"
 authors = [{name = "Diprog"}]
 description = "Async MongoDB ODM with msgspec integration and automatic collection binding"
 readme = "README.md"
