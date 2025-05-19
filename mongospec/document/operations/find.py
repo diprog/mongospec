@@ -10,52 +10,40 @@ from typing import Any, Self
 from bson import ObjectId
 from mongojet._cursor import Cursor
 
-from .base import BaseOperations, TDocument
+from .base import BaseOperations, T
 
 
-class AsyncDocumentCursor[TDocument]:
-    """
-    Async cursor wrapper for efficient document iteration.
-
-    Fetches documents in batches and yields them individually.
-    Maintains cursor state and cleans up resources automatically.
-    """
-
+class AsyncDocumentCursor:
     def __init__(
             self,
             cursor: Cursor,
-            document_class: type[TDocument],
-            batch_size: int = 100
+            document_class: type[T],
+            batch_size: int | None = None
     ) -> None:
-        """
-        Initialize async document cursor.
-
-        :param cursor: Raw MongoDB cursor from find operation
-        :param document_class: Document model class for deserialization
-        :param batch_size: Number of documents to fetch per batch
-        """
         self._cursor = cursor
         self.document_class = document_class
         self.batch_size = batch_size
-        self._current_batch: list[Any] = []
-        self._has_more = True
 
     def __aiter__(self) -> Self:
         return self
 
-    async def __anext__(self) -> TDocument:
-        while True:
-            if self._current_batch:
-                return self.document_class.load(self._current_batch.pop(0))
+    async def __anext__(self) -> T:
+        try:
+            # The mongojet Cursor already implements __anext__ with StopAsyncIteration
+            doc = await self._cursor.__anext__()
+            return self.document_class.load(doc)
+        except StopAsyncIteration:
+            raise
 
-            if not self._has_more:
-                raise StopAsyncIteration
+    async def to_list(self, length: int | None = None) -> list[T]:
+        """
+        Convert cursor results to a list of documents.
 
-            self._current_batch = await self._cursor.to_list(self.batch_size)
-            self._has_more = bool(self._current_batch)
-
-            if not self._current_batch:
-                raise StopAsyncIteration
+        :param length: Maximum number of documents to return. None means no limit.
+        :return: List of document instances
+        """
+        docs = await self._cursor.to_list(length)
+        return [self.document_class.load(doc) for doc in docs]
 
 
 class FindOperationsMixin(BaseOperations):
@@ -63,10 +51,10 @@ class FindOperationsMixin(BaseOperations):
 
     @classmethod
     async def find_one(
-            cls: type[TDocument],
+            cls: type[T],
             filter: dict | None = None,
             **kwargs: Any
-    ) -> TDocument | None:
+    ) -> T | None:
         """
         Find single document matching the query filter.
 
@@ -79,10 +67,10 @@ class FindOperationsMixin(BaseOperations):
 
     @classmethod
     async def find_by_id(
-            cls: type[TDocument],
+            cls: type[T],
             document_id: ObjectId | str,
             **kwargs: Any
-    ) -> TDocument | None:
+    ) -> T | None:
         """
         Find document by its _id.
 
@@ -96,33 +84,37 @@ class FindOperationsMixin(BaseOperations):
 
     @classmethod
     async def find(
-            cls: type[TDocument],
+            cls,
             filter: dict | None = None,
-            batch_size: int = 100,
+            batch_size: int | None = None,
             **kwargs: Any
-    ) -> AsyncDocumentCursor[TDocument]:
+    ) -> AsyncDocumentCursor:
         """
         Create async cursor for query results.
 
         :param filter: MongoDB query filter
-        :param batch_size: Number of documents per batch (default: 100)
+        :param batch_size: Number of documents per batch (default: None)
         :param kwargs: Additional arguments for find()
         :return: AsyncDocumentCursor instance for iteration
 
-        .. code-block:: python
+        Example::
 
             # Iterate over large result set efficiently
-            async for user in await User.find({"age": {"$gt": 30}}, batch_size=500):
+            async for user in User.find({"age": {"$gt": 30}}):
                 process_user(user)
         """
+        # Pass batch_size to the collection's find method if specified
+        if batch_size is not None:
+            kwargs['batch_size'] = batch_size
+
         cursor = await cls._get_collection().find(filter or {}, **kwargs)
-        return AsyncDocumentCursor[TDocument](cursor, cls, batch_size)
+        return AsyncDocumentCursor(cursor, cls, batch_size)
 
     @classmethod
     async def find_all(
-            cls: type[TDocument],
+            cls: type[T],
             **kwargs: Any
-    ) -> list[TDocument]:
+    ) -> list[T]:
         """
         Retrieve all documents in collection (use with caution).
 
@@ -136,7 +128,7 @@ class FindOperationsMixin(BaseOperations):
 
     @classmethod
     async def count(
-            cls: type[TDocument],
+            cls: type[T],
             filter: dict | None = None,
             **kwargs: Any
     ) -> int:
@@ -151,7 +143,7 @@ class FindOperationsMixin(BaseOperations):
 
     @classmethod
     async def exists(
-            cls: type[TDocument],
+            cls: type[T],
             filter: dict,
             **kwargs: Any
     ) -> bool:

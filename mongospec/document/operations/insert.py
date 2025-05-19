@@ -7,17 +7,17 @@ Provides all document insertion capabilities including:
 - Insert with validation
 """
 
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 from bson import ObjectId
 
-from .base import BaseOperations, TDocument
+from .base import BaseOperations, T
 
 
 class InsertOperationsMixin(BaseOperations):
     """Mixin class providing all insert operations for MongoDocument"""
 
-    async def insert(self: TDocument, **kwargs: Any) -> TDocument:
+    async def insert(self: T, **kwargs: Any) -> T:
         """
         Insert the current document instance into its collection.
 
@@ -45,10 +45,10 @@ class InsertOperationsMixin(BaseOperations):
 
     @classmethod
     async def insert_one(
-            cls: type[TDocument],
-            document: TDocument,
+            cls: type[T],
+            document: T,
             **kwargs: Any
-    ) -> TDocument:
+    ) -> T:
         """
         Insert a single document into the collection.
 
@@ -73,11 +73,11 @@ class InsertOperationsMixin(BaseOperations):
 
     @classmethod
     async def insert_many(
-            cls: type[TDocument],
-            documents: List[TDocument],
+            cls: type[T],
+            documents: list[T],
             ordered: bool = True,
             **kwargs: Any
-    ) -> List[ObjectId]:
+    ) -> list[ObjectId]:
         """
         Insert multiple documents into the collection.
 
@@ -104,18 +104,18 @@ class InsertOperationsMixin(BaseOperations):
         )
 
         # Update documents with their new _ids
-        for doc, doc_id in zip(documents, result["inserted_id"]):
+        for doc, doc_id in zip(documents, result["inserted_ids"]):
             doc._id = doc_id
 
-        return result["inserted_id"]
+        return result["inserted_ids"]
 
     @classmethod
     async def insert_if_not_exists(
-            cls: type[TDocument],
-            document: TDocument,
+            cls: type[T],
+            document: T,
             filter: Optional[dict] = None,
             **kwargs: Any
-    ) -> Optional[TDocument]:
+    ) -> Optional[T]:
         """
         Insert document only if matching document doesn't exist.
 

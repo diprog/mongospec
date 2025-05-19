@@ -6,6 +6,7 @@ This private module should only be used by the public interface.
 """
 import logging
 from typing import Self
+
 import mongojet
 
 logger = logging.getLogger(__name__)

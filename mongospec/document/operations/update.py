@@ -11,13 +11,13 @@ from typing import Any
 
 from bson import ObjectId
 
-from .base import BaseOperations, TDocument
+from .base import BaseOperations, T
 
 
 class UpdateOperationsMixin(BaseOperations):
     """Mixin class providing all update operations for MongoDocument"""
 
-    async def save(self: TDocument, upsert: bool = False, **kwargs: Any) -> TDocument:
+    async def save(self: T, upsert: bool = False, **kwargs: Any) -> T:
         """
         Persist document changes to the database.
 
@@ -63,7 +63,7 @@ class UpdateOperationsMixin(BaseOperations):
 
     @classmethod
     async def update_one(
-            cls: type[TDocument],
+            cls: type[T],
             filter: dict,
             update: dict,
             **kwargs: Any
@@ -89,7 +89,7 @@ class UpdateOperationsMixin(BaseOperations):
 
     @classmethod
     async def update_many(
-            cls: type[TDocument],
+            cls: type[T],
             filter: dict,
             update: dict,
             **kwargs: Any
@@ -107,7 +107,7 @@ class UpdateOperationsMixin(BaseOperations):
 
     @classmethod
     async def update_by_id(
-            cls: type[TDocument],
+            cls: type[T],
             document_id: ObjectId | str,
             update: dict,
             **kwargs: Any
@@ -138,12 +138,12 @@ class UpdateOperationsMixin(BaseOperations):
 
     @classmethod
     async def find_one_and_update(
-            cls: type[TDocument],
+            cls: type[T],
             filter: dict,
             update: dict,
             return_updated: bool = True,
             **kwargs: Any
-    ) -> TDocument | None:
+    ) -> T | None:
         """
         Atomically find and update a document.
 

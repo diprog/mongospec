@@ -11,13 +11,13 @@ from typing import Any
 
 from bson import ObjectId
 
-from .base import BaseOperations, TDocument
+from .base import BaseOperations, T
 
 
 class DeleteOperationsMixin(BaseOperations):
     """Mixin class providing all delete operations for MongoDocument"""
 
-    async def delete(self: TDocument, **kwargs: Any) -> int:
+    async def delete(self: T, **kwargs: Any) -> int:
         """
         Delete current document instance from collection.
 
@@ -44,7 +44,7 @@ class DeleteOperationsMixin(BaseOperations):
 
     @classmethod
     async def delete_one(
-            cls: type[TDocument],
+            cls: type[T],
             filter: dict,
             **kwargs: Any
     ) -> int:
@@ -65,7 +65,7 @@ class DeleteOperationsMixin(BaseOperations):
 
     @classmethod
     async def delete_many(
-            cls: type[TDocument],
+            cls: type[T],
             filter: dict,
             **kwargs: Any
     ) -> int:
@@ -86,7 +86,7 @@ class DeleteOperationsMixin(BaseOperations):
 
     @classmethod
     async def delete_by_id(
-            cls: type[TDocument],
+            cls: type[T],
             document_id: ObjectId | str,
             **kwargs: Any
     ) -> int:

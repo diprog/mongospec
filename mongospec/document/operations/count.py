@@ -2,9 +2,9 @@
 Count operations mixin for MongoDocument.
 """
 
-from typing import Any, Optional
+from typing import Any
 
-from .base import BaseOperations, TDocument
+from .base import BaseOperations, T
 
 
 class CountOperationsMixin(BaseOperations):
@@ -12,9 +12,9 @@ class CountOperationsMixin(BaseOperations):
 
     @classmethod
     async def count_documents(
-        cls: type[TDocument],
-        filter: dict | None = None,
-        **kwargs: Any
+            cls: type[T],
+            filter: dict | None = None,
+            **kwargs: Any
     ) -> int:
         """
         Count documents matching the filter in the collection.
@@ -26,7 +26,7 @@ class CountOperationsMixin(BaseOperations):
         return await cls._get_collection().count_documents(filter or {}, **kwargs)
 
     @classmethod
-    async def estimated_document_count(cls: type[TDocument], **kwargs: Any) -> int:
+    async def estimated_document_count(cls: type[T], **kwargs: Any) -> int:
         """
         Get estimated document count using collection metadata.
 
