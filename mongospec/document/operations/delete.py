@@ -7,9 +7,10 @@ Provides document deletion capabilities including:
 - Instance-based deletion
 """
 
-from typing import Any
+from typing import Any, Unpack
 
 from bson import ObjectId
+from mongojet._types import DeleteOptions, Document
 
 from .base import BaseOperations, T
 
@@ -17,7 +18,7 @@ from .base import BaseOperations, T
 class DeleteOperationsMixin(BaseOperations):
     """Mixin class providing all delete operations for MongoDocument"""
 
-    async def delete(self: T, **kwargs: Any) -> int:
+    async def delete(self: T, **kwargs: Unpack[DeleteOptions]) -> int:
         """
         Delete current document instance from collection.
 
@@ -45,8 +46,8 @@ class DeleteOperationsMixin(BaseOperations):
     @classmethod
     async def delete_one(
             cls: type[T],
-            filter: dict,
-            **kwargs: Any
+            filter: Document | str | None = None,
+            **kwargs: Unpack[DeleteOptions]
     ) -> int:
         """
         Delete single document matching filter.
@@ -66,8 +67,8 @@ class DeleteOperationsMixin(BaseOperations):
     @classmethod
     async def delete_many(
             cls: type[T],
-            filter: dict,
-            **kwargs: Any
+            filter: Document,
+            **kwargs: Unpack[DeleteOptions]
     ) -> int:
         """
         Delete multiple documents matching filter.
@@ -88,7 +89,7 @@ class DeleteOperationsMixin(BaseOperations):
     async def delete_by_id(
             cls: type[T],
             document_id: ObjectId | str,
-            **kwargs: Any
+            **kwargs: Unpack[DeleteOptions]
     ) -> int:
         """
         Delete document by ID.

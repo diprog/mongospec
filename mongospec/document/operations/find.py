@@ -5,10 +5,12 @@ Provides query capabilities with efficient async iteration for large result sets
 Includes cursor management to prevent memory overflows.
 """
 
-from typing import Any, Self
+from typing import Any, Self, Unpack
 
 from bson import ObjectId
+from mongojet._collection import FindOptions
 from mongojet._cursor import Cursor
+from mongojet._types import CountOptions, Document, FindOneOptions
 
 from .base import BaseOperations, T
 
@@ -52,8 +54,8 @@ class FindOperationsMixin(BaseOperations):
     @classmethod
     async def find_one(
             cls: type[T],
-            filter: dict | None = None,
-            **kwargs: Any
+            filter: Document | str | None = None,
+            **kwargs: Unpack[FindOneOptions]
     ) -> T | None:
         """
         Find single document matching the query filter.
@@ -69,7 +71,7 @@ class FindOperationsMixin(BaseOperations):
     async def find_by_id(
             cls: type[T],
             document_id: ObjectId | str,
-            **kwargs: Any
+            **kwargs: Unpack[FindOneOptions]
     ) -> T | None:
         """
         Find document by its _id.
@@ -84,16 +86,14 @@ class FindOperationsMixin(BaseOperations):
 
     @classmethod
     async def find(
-            cls,
-            filter: dict | None = None,
-            batch_size: int | None = None,
-            **kwargs: Any
+            cls: type[T],
+            filter: Document | None = None,
+            **kwargs: Unpack[FindOptions]
     ) -> AsyncDocumentCursor:
         """
         Create async cursor for query results.
 
         :param filter: MongoDB query filter
-        :param batch_size: Number of documents per batch (default: None)
         :param kwargs: Additional arguments for find()
         :return: AsyncDocumentCursor instance for iteration
 
@@ -103,17 +103,13 @@ class FindOperationsMixin(BaseOperations):
             async for user in User.find({"age": {"$gt": 30}}):
                 process_user(user)
         """
-        # Pass batch_size to the collection's find method if specified
-        if batch_size is not None:
-            kwargs['batch_size'] = batch_size
-
         cursor = await cls._get_collection().find(filter or {}, **kwargs)
-        return AsyncDocumentCursor(cursor, cls, batch_size)
+        return AsyncDocumentCursor(cursor, cls, kwargs.get("batch_size"))
 
     @classmethod
     async def find_all(
             cls: type[T],
-            **kwargs: Any
+            **kwargs: Unpack[FindOptions]
     ) -> list[T]:
         """
         Retrieve all documents in collection (use with caution).
@@ -122,15 +118,15 @@ class FindOperationsMixin(BaseOperations):
         :return: List of document instances
         :warning: Not recommended for large collections
         """
-        cursor = cls._get_collection().find({}, **kwargs)
+        cursor = await cls._get_collection().find({}, **kwargs)
         docs = await cursor.to_list(None)  # None returns all documents
         return [cls.load(d) for d in docs]
 
     @classmethod
     async def count(
             cls: type[T],
-            filter: dict | None = None,
-            **kwargs: Any
+            filter: Document | None = None,
+            **kwargs: Unpack[CountOptions]
     ) -> int:
         """
         Count documents matching the filter.
@@ -144,8 +140,8 @@ class FindOperationsMixin(BaseOperations):
     @classmethod
     async def exists(
             cls: type[T],
-            filter: dict,
-            **kwargs: Any
+            filter: dict[str, Any],
+            **kwargs: Unpack[CountOptions]
     ) -> bool:
         """
         Check if any document matches the filter.

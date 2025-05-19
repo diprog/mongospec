@@ -3,6 +3,7 @@ Count operations mixin for MongoDocument.
 """
 
 from typing import Any
+from xml.dom.minidom import Document
 
 from .base import BaseOperations, T
 
@@ -13,7 +14,7 @@ class CountOperationsMixin(BaseOperations):
     @classmethod
     async def count_documents(
             cls: type[T],
-            filter: dict | None = None,
+            filter: Document | None = None,
             **kwargs: Any
     ) -> int:
         """

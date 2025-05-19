@@ -7,9 +7,10 @@ Provides all document insertion capabilities including:
 - Insert with validation
 """
 
-from typing import Any, Optional
+from typing import Any, Optional, Sequence, Unpack
 
 from bson import ObjectId
+from mongojet._types import Document, InsertManyOptions, InsertOneOptions
 
 from .base import BaseOperations, T
 
@@ -17,7 +18,7 @@ from .base import BaseOperations, T
 class InsertOperationsMixin(BaseOperations):
     """Mixin class providing all insert operations for MongoDocument"""
 
-    async def insert(self: T, **kwargs: Any) -> T:
+    async def insert(self: T, **kwargs: Unpack[InsertOneOptions]) -> T:
         """
         Insert the current document instance into its collection.
 
@@ -47,7 +48,7 @@ class InsertOperationsMixin(BaseOperations):
     async def insert_one(
             cls: type[T],
             document: T,
-            **kwargs: Any
+            **kwargs: Unpack[InsertOneOptions]
     ) -> T:
         """
         Insert a single document into the collection.
@@ -75,14 +76,12 @@ class InsertOperationsMixin(BaseOperations):
     async def insert_many(
             cls: type[T],
             documents: list[T],
-            ordered: bool = True,
-            **kwargs: Any
-    ) -> list[ObjectId]:
+            **kwargs: Unpack[InsertManyOptions]
+    ) -> Sequence[ObjectId]:
         """
         Insert multiple documents into the collection.
 
         :param documents: List of document instances to insert
-        :param ordered: If True (default), perform ordered insert
         :param kwargs: Additional arguments passed to insert_many()
         :return: List of inserted _ids
         :raises TypeError: If any document validation fails
@@ -99,7 +98,6 @@ class InsertOperationsMixin(BaseOperations):
 
         result = await cls._get_collection().insert_many(
             [d.dump() for d in documents],
-            ordered=ordered,
             **kwargs
         )
 
@@ -113,8 +111,8 @@ class InsertOperationsMixin(BaseOperations):
     async def insert_if_not_exists(
             cls: type[T],
             document: T,
-            filter: Optional[dict] = None,
-            **kwargs: Any
+            filter: Document | str | None = None,
+            **kwargs: Unpack[InsertOneOptions]
     ) -> Optional[T]:
         """
         Insert document only if matching document doesn't exist.

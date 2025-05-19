@@ -7,9 +7,10 @@ Provides document modification capabilities including:
 - Atomic field updates with concurrency control
 """
 
-from typing import Any
+from typing import Any, Sequence, Unpack
 
 from bson import ObjectId
+from mongojet._types import Document, FindOneAndUpdateOptions, ReplaceOptions, UpdateOptions
 
 from .base import BaseOperations, T
 
@@ -17,7 +18,7 @@ from .base import BaseOperations, T
 class UpdateOperationsMixin(BaseOperations):
     """Mixin class providing all update operations for MongoDocument"""
 
-    async def save(self: T, upsert: bool = False, **kwargs: Any) -> T:
+    async def save(self: T, upsert: bool = False, **kwargs: Unpack[ReplaceOptions]) -> T:
         """
         Persist document changes to the database.
 
@@ -64,9 +65,9 @@ class UpdateOperationsMixin(BaseOperations):
     @classmethod
     async def update_one(
             cls: type[T],
-            filter: dict,
-            update: dict,
-            **kwargs: Any
+            filter: Document,
+            update: Document | Sequence[Document],
+            **kwargs: Unpack[UpdateOptions]
     ) -> int:
         """
         Update single document matching the filter.
@@ -90,9 +91,9 @@ class UpdateOperationsMixin(BaseOperations):
     @classmethod
     async def update_many(
             cls: type[T],
-            filter: dict,
-            update: dict,
-            **kwargs: Any
+            filter: Document,
+            update: Document | Sequence[Document],
+            **kwargs: Unpack[UpdateOptions]
     ) -> int:
         """
         Update multiple documents matching the filter.
@@ -109,8 +110,8 @@ class UpdateOperationsMixin(BaseOperations):
     async def update_by_id(
             cls: type[T],
             document_id: ObjectId | str,
-            update: dict,
-            **kwargs: Any
+            update: Document | Sequence[Document],
+            **kwargs: Unpack[UpdateOptions]
     ) -> int:
         """
         Update document by its ID with atomic operations.
@@ -139,10 +140,10 @@ class UpdateOperationsMixin(BaseOperations):
     @classmethod
     async def find_one_and_update(
             cls: type[T],
-            filter: dict,
-            update: dict,
+            filter: Document,
+            update: Document | Sequence[Document],
             return_updated: bool = True,
-            **kwargs: Any
+            **kwargs: Unpack[FindOneAndUpdateOptions]
     ) -> T | None:
         """
         Atomically find and update a document.
