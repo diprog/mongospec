@@ -5,7 +5,7 @@ Provides query capabilities with efficient async iteration for large result sets
 Includes cursor management to prevent memory overflows.
 """
 
-from typing import Any, Self, Unpack
+from typing import Any, Unpack
 
 from bson import ObjectId
 from mongojet._collection import FindOptions
@@ -16,26 +16,13 @@ from .base import BaseOperations, T
 
 
 class AsyncDocumentCursor:
-    def __init__(
-            self,
-            cursor: Cursor,
-            document_class: type[T],
-            batch_size: int | None = None
-    ) -> None:
+    def __init__(self, cursor: Cursor, document_class: type[T]) -> None:
         self._cursor = cursor
         self.document_class = document_class
-        self.batch_size = batch_size
-
-    def __aiter__(self) -> Self:
-        return self
 
     async def __anext__(self) -> T:
-        try:
-            # The mongojet Cursor already implements __anext__ with StopAsyncIteration
-            doc = await self._cursor.__anext__()
-            return self.document_class.load(doc)
-        except StopAsyncIteration:
-            raise
+        doc = await self._cursor.__anext__()
+        return self.document_class.load(doc)
 
     async def to_list(self, length: int | None = None) -> list[T]:
         """
@@ -104,7 +91,7 @@ class FindOperationsMixin(BaseOperations):
                 process_user(user)
         """
         cursor = await cls._get_collection().find(filter or {}, **kwargs)
-        return AsyncDocumentCursor(cursor, cls, kwargs.get("batch_size"))
+        return AsyncDocumentCursor(cursor, cls)
 
     @classmethod
     async def find_all(
