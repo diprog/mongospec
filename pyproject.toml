@@ -10,7 +10,7 @@ requires-python = ">=3.13"
 license = "MIT"
 keywords = ["mongodb", "odm", "async", "database", "asyncio", "msgspec", "mongojet"]
 dependencies = [
-    "mongojet~=0.3.1",
+    "mongojet~=0.3.2",
     "msgspec~=0.19.0",
 ]
 classifiers = [
