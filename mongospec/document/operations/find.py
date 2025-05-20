@@ -5,7 +5,7 @@ Provides query capabilities with efficient async iteration for large result sets
 Includes cursor management to prevent memory overflows.
 """
 
-from typing import Any, Unpack
+from typing import Any, Self, Unpack
 
 from bson import ObjectId
 from mongojet._collection import FindOptions
@@ -19,6 +19,9 @@ class AsyncDocumentCursor:
     def __init__(self, cursor: Cursor, document_class: type[T]) -> None:
         self._cursor = cursor
         self.document_class = document_class
+
+    def __aiter__(self) -> Self:
+        return self
 
     async def __anext__(self) -> T:
         doc = await self._cursor.__anext__()
