@@ -3,7 +3,8 @@ Count operations mixin for MongoDocument.
 """
 
 from typing import Any
-from xml.dom.minidom import Document
+
+from mongojet._types import Document
 
 from .base import BaseOperations, T
 
