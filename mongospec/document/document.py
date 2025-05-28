@@ -5,7 +5,7 @@ Provides collection name resolution and runtime collection access.
 Uses class name as fallback when __collection_name__ is not specified.
 """
 from datetime import datetime
-from typing import Any, ClassVar, Self, final
+from typing import Any, ClassVar, Self, Sequence, final
 
 import mongojet
 import msgspec
@@ -79,12 +79,13 @@ class MongoDocument(
     # Configuration settings
     __collection_name__: ClassVar[str | None] = None
     __preserve_types__: ClassVar[tuple[type[Any], ...]] = (ObjectId, datetime)
-    __indexes__: ClassVar[list[IndexModel]] = []
+    __indexes__: ClassVar[Sequence[IndexModel]] = []
 
     # Collection initialized externally
     __collection__: ClassVar[mongojet.Collection | None] = None
 
     # Primary key field
+    # noinspection PyProtectedMember
     _id: ObjectId | None = None
 
     @classmethod
