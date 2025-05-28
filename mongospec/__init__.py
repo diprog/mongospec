@@ -1,5 +1,5 @@
 # Core functionality
-from .core import (close, get_collection, init, is_connected)
+from .core import (close, init)
 # Document models
 from .document import MongoDocument
 from .document.operations import (
@@ -15,8 +15,6 @@ __all__ = [
     # Core functionality
     'init',
     'close',
-    'get_collection',
-    'is_connected',
     
     # Document models
     'MongoDocument',

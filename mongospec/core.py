@@ -42,7 +42,7 @@ async def init(
             if not issubclass(doc_type, MongoDocument):
                 raise TypeError(f"{doc_type} must be a subclass of MongoDocument,")
 
-            doc_type.__collection__ = get_collection(doc_type.get_collection_name())
+            doc_type.__collection__ = __connection.get_collection(doc_type.get_collection_name())
 
             if doc_type.__indexes__:
                 await doc_type.__collection__.create_indexes(doc_type.__indexes__)
@@ -56,23 +56,3 @@ async def close() -> None:
         Safe to call multiple times. Recommended for application shutdown.
     """
     await __connection.disconnect()
-
-
-def get_collection(name: str) -> mongojet.Collection:
-    """
-    Get reference to a MongoDB collection.
-
-    :param name: Collection name to access.
-    :returns: AsyncIOMotorCollection instance.
-    :raises RuntimeError: If connection not initialized.
-    """
-    return __connection.get_collection(name)
-
-
-def is_connected() -> bool:
-    """
-    Check current connection status.
-
-    :returns: True if connected, False otherwise.
-    """
-    return getattr(__connection, "_is_connected", False)
