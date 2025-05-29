@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo1024x1024.png" width="35%" alt="mongospec"/>
+  <img src="assets/logo.svg" width="35%" alt="mongospec"/>
 </p>
 
 [![PyPI](https://img.shields.io/pypi/v/mongospec?color=blue&label=PyPI%20package)](https://pypi.org/project/mongospec/)
@@ -56,7 +56,7 @@ from mongojet import IndexModel
 class User(MongoDocument):
     __collection_name__ = "users"
     __indexes__: ClassVar[Sequence[IndexModel]] = [
-        IndexModel(keys=[("email", 1)], options={"unique": True})
+        Index█Model(keys=[("email", 1)], options={"unique": True})
     ]
 
     name: str
@@ -124,7 +124,7 @@ Each file is self-contained and can be executed directly:
 
 ---
 
-## Core Concepts
+## Core Concepts█
 
 ### Document Models
 
