@@ -157,3 +157,47 @@ Declare indexes in `__indexes__` as a `Sequence[IndexModel]`
 (unique, compound, text, …).
 Indexes are created automatically at init time.
 See **[`examples/index_creation.py`](./examples/index_creation.py)**.
+
+### Automatic Discovery of Document Models
+
+In addition to manually listing document classes when calling `mongospec.init(...)`, you can use the utility function `collect_document_types(...)` to automatically discover all models in a package:
+
+```python
+from mongospec.utils import collect_document_types
+
+document_types = collect_document_types("myapp.db.models")
+await mongospec.init(db, document_types=document_types)
+
+```
+
+This function supports:
+
+* Recursive import of all submodules in the target package
+* Filtering by base class (default: `MongoDocument`)
+* Optional exclusion of abstract or re-exported classes
+* Regex or callable-based module filtering
+* Graceful handling of import errors
+
+**Usage Example:**
+
+```python
+from mongospec.utils import collect_document_types
+
+# Collect all document models in `myapp.db.models` and its submodules
+models = collect_document_types(
+    "myapp.db.models",
+    ignore_abstract=True,
+    local_only=True,
+    on_error="warn",
+)
+
+await mongospec.init(db, document_types=models)
+```
+
+**Advanced options include:**
+
+* `predicate=...` to filter only specific model types
+* `return_map=True` to get a `{qualified_name: class}` dict
+* `module_filter=".*models.*"` to restrict traversal
+
+See the full function signature in [`mongospec/utils.py`](./mongospec/utils.py).
