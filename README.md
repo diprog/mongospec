@@ -50,13 +50,13 @@ import msgspec
 
 import mongospec
 from mongospec import MongoDocument
-from mongojet import IndexModel
+from mongospec import IndexModel
 
 
 class User(MongoDocument):
     __collection_name__ = "users"
     __indexes__: ClassVar[Sequence[IndexModel]] = [
-        Index█Model(keys=[("email", 1)], options={"unique": True})
+        IndexModel(keys=[("email", 1)], options={"unique": True})
     ]
 
     name: str
@@ -124,7 +124,7 @@ Each file is self-contained and can be executed directly:
 
 ---
 
-## Core Concepts█
+## Core Concepts
 
 ### Document Models
 

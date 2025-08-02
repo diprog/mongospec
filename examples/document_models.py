@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Optional
 
 import msgspec
-from mongojet import IndexModel
+from mongospec import IndexModel
 
 from mongospec import MongoDocument
 

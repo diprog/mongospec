@@ -3,10 +3,9 @@ from datetime import datetime
 
 import mongojet
 import msgspec
-from mongojet import IndexModel
 
 import mongospec
-from mongospec import MongoDocument
+from mongospec import IndexModel, MongoDocument
 
 
 class User(MongoDocument):

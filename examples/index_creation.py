@@ -1,4 +1,4 @@
-from mongojet import IndexModel
+from mongospec import IndexModel
 
 from mongospec import MongoDocument
 

@@ -5,8 +5,7 @@ from typing import Optional, ClassVar, Sequence
 import msgspec
 import mongojet
 import mongospec
-from mongojet import IndexModel
-from mongospec import MongoDocument
+from mongospec import MongoDocument, IndexModel
 
 class User(MongoDocument):
     __collection_name__ = "users"

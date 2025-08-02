@@ -10,8 +10,8 @@ from typing import Any, ClassVar, Self, Sequence, final
 import mongojet
 import msgspec
 from bson import ObjectId
-from mongojet import IndexModel
 
+from mongospec import IndexModel
 from .operations import (
     CountOperationsMixin, DeleteOperationsMixin, FindOperationsMixin,
     InsertOperationsMixin, UpdateOperationsMixin
