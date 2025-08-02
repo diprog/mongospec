@@ -17,6 +17,7 @@ class User(MongoDocument):
     status: str = "active"
     created_at: datetime = msgspec.field(default_factory=datetime.now)
 
+
 async def main():
     mongo_client = await mongojet.create_client("mongodb://localhost:27017")
     await mongospec.init(mongo_client.get_database("example_db"), document_types=[User])
@@ -45,5 +46,6 @@ async def main():
         print(f"Deleted {deleted_count} inactive users")
     finally:
         await mongospec.close()
+
 
 asyncio.run(main())

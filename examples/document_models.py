@@ -2,9 +2,8 @@ from datetime import datetime
 from typing import Optional
 
 import msgspec
-from mongospec import IndexModel
 
-from mongospec import MongoDocument
+from mongospec import IndexModel, MongoDocument
 
 
 class Product(MongoDocument):

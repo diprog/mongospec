@@ -11,7 +11,7 @@ import mongojet
 import msgspec
 from bson import ObjectId
 
-from mongospec import IndexModel
+from mongojet import IndexModel
 from .operations import (
     CountOperationsMixin, DeleteOperationsMixin, FindOperationsMixin,
     InsertOperationsMixin, UpdateOperationsMixin

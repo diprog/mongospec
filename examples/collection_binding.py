@@ -1,11 +1,13 @@
 import asyncio
 from datetime import datetime
-from typing import Optional, ClassVar, Sequence
+from typing import Optional
 
-import msgspec
 import mongojet
+import msgspec
+
 import mongospec
-from mongospec import MongoDocument, IndexModel
+from mongospec import IndexModel, MongoDocument
+
 
 class User(MongoDocument):
     __collection_name__ = "users"
