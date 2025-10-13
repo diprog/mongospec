@@ -9,9 +9,8 @@ from typing import Any, ClassVar, Self, Sequence, final
 
 import mongojet
 import msgspec
-from bson import ObjectId
+from bson import ObjectId, int64
 
-from mongojet import IndexModel
 from .operations import (
     CountOperationsMixin, DeleteOperationsMixin, FindOperationsMixin,
     InsertOperationsMixin, UpdateOperationsMixin
@@ -26,6 +25,11 @@ def default_dec_hook(expected_type: type, obj: Any) -> Any:
     :return: The converted value.
     :raises ValueError: If the object cannot be converted to an ObjectId.
     """
+    # Normalize BSON Int64 regardless of the expected target type,
+    # so it also works for fields annotated as `Any`.
+    if isinstance(obj, int64.Int64):
+        return int(obj)
+
     if expected_type is ObjectId:
         if isinstance(obj, ObjectId):
             return obj
@@ -79,7 +83,7 @@ class MongoDocument(
     # Configuration settings
     __collection_name__: ClassVar[str | None] = None
     __preserve_types__: ClassVar[tuple[type[Any], ...]] = (ObjectId, datetime)
-    __indexes__: ClassVar[Sequence[IndexModel]] = []
+    __indexes__: ClassVar[Sequence[mongojet.IndexModel]] = []
 
     # Collection initialized externally
     __collection__: ClassVar[mongojet.Collection | None] = None
@@ -96,7 +100,7 @@ class MongoDocument(
         :param expected_type: The type we're trying to deserialize into.
         :param obj: The raw value to convert.
         :return: The converted value.
-        :raises NotImplementedError: By default to indicate no custom handling.
+        :raises NotImplementedError: By default, to indicate no custom handling.
 
         Example usage:
 
@@ -116,7 +120,7 @@ class MongoDocument(
 
         :param obj: The value to serialize.
         :return: A serializable representation of the value.
-        :raises NotImplementedError: By default to indicate no custom handling.
+        :raises NotImplementedError: By default, to indicate no custom handling.
 
         Example usage:
 

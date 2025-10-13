@@ -13,7 +13,7 @@ from .document.operations import (
 )
 
 # Re-export commonly used dependency types
-from mongojet import IndexModel
+from mongojet import *
 
 __all__ = [
     # Core functionality
@@ -30,5 +30,29 @@ __all__ = [
     "UpdateOperationsMixin",
 
     # Public re-exports
+    "create_client",
+    "Client",
+    "Database",
+    "Collection",
+    "PyMongoError",
+    "OperationFailure",
+    "WriteError",
+    "WriteConcernError",
+    "DuplicateKeyError",
+    "BsonSerializationError",
+    "BsonDeserializationError",
+    "ConnectionFailure",
+    "ServerSelectionError",
+    "ConfigurationError",
+    "DatabaseOptions",
+    "CollectionOptions",
+    "ReadConcern",
+    "WriteConcern",
+    "ReadPreference",
     "IndexModel",
+    "IndexModelDef",
+    "GridfsBucket",
+    "GridFSError",
+    "NoFile",
+    "FileExists",
 ]
