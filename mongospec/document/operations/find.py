@@ -140,7 +140,7 @@ class FindOperationsMixin(BaseOperations):
         pipeline: Sequence[Document],
         session: ClientSession | None = None,
         **kwargs: Unpack[AggregateOptions],
-    ) -> AsyncDocumentCursor:
+    ) -> Cursor[dict[str, Any]]:
         """
         Execute aggregation pipeline on collection.
 
@@ -148,24 +148,5 @@ class FindOperationsMixin(BaseOperations):
         :param session: Optional client session for transaction support
         :param kwargs: Additional arguments for aggregate()
         :return: AsyncDocumentCursor instance for iteration over aggregation results
-
-        Example::
-
-            # Group documents by field and count
-            pipeline = [
-                {"$group": {"_id": "$status", "count": {"$sum": 1}}}
-            ]
-            cursor = await User.aggregate(pipeline)
-            results = await cursor.to_list()
-
-            # Complex aggregation with multiple stages
-            pipeline = [
-                {"$match": {"age": {"$gte": 18}}},
-                {"$group": {"_id": "$city", "avg_age": {"$avg": "$age"}}},
-                {"$sort": {"avg_age": -1}}
-            ]
-            async for result in User.aggregate(pipeline):
-                process_aggregation(result)
         """
-        cursor = await cls._get_collection().aggregate(pipeline, session, **kwargs)
-        return AsyncDocumentCursor(cursor, cls)
+        return await cls._get_collection().aggregate(pipeline, session, **kwargs)
