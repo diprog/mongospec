@@ -95,16 +95,22 @@ class FindOperationsMixin(BaseOperations):
         return AsyncDocumentCursor(cursor, cls)
 
     @classmethod
-    async def find_all(cls: type[T], **kwargs: Unpack[FindOptions]) -> list[T]:
+    async def find_all(
+        cls: type[T], filter: Document | None = None, **kwargs: Unpack[FindOptions]
+    ) -> list[T]:
         """
-        Retrieve all documents in collection (use with caution).
+        Retrieve all documents matching the filter as a list.
 
-        :param kwargs: Additional arguments for find()
-        :return: List of document instances
-        :warning: Not recommended for large collections
+        This helper issues a single query and collects the entire result set into memory.
+        Prefer :meth:`find` for streaming iteration when dealing with large collections.
+
+        :param filter: MongoDB query filter. None selects all documents.
+        :param kwargs: Additional FindOptions passed to ``find()`` (e.g., projection, sort, limit, batch_size).
+        :returns: List of loaded document instances.
+        :warning: Loads the full result set in memory; may be slow or exhaust memory on large collections.
         """
-        cursor = await cls._get_collection().find({}, **kwargs)
-        docs = await cursor.to_list(None)  # None returns all documents
+        cursor = await cls._get_collection().find(filter, **kwargs)
+        docs = await cursor.to_list()
         return [cls.load(d) for d in docs]
 
     @classmethod
