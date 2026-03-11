@@ -10,11 +10,26 @@ from typing import Any, ClassVar, Self, Sequence, final
 import mongojet
 import msgspec
 from bson import ObjectId, int64
+from msgspec._core import StructMeta
 
 from .operations import (
     CountOperationsMixin, DeleteOperationsMixin, FindOperationsMixin,
     InsertOperationsMixin, UpdateOperationsMixin
 )
+
+
+class _AutoKwOnlyMeta(StructMeta):
+    """Metaclass that propagates ``kw_only=True`` to all subclasses.
+
+    ``msgspec.Struct`` only inherits ``kw_only`` one level deep.
+    This metaclass ensures it is applied at every depth automatically,
+    unless explicitly overridden with ``kw_only=False``.
+    """
+
+    def __new__(mcs, name: str, bases: tuple[type, ...], namespace: dict[str, Any], **kwargs: Any) -> type:
+        if any(isinstance(b, type) and issubclass(b, msgspec.Struct) for b in bases):
+            kwargs.setdefault("kw_only", True)
+        return super().__new__(mcs, name, bases, namespace, **kwargs)
 
 
 def default_dec_hook(expected_type: type, obj: Any) -> Any:
@@ -56,7 +71,8 @@ class MongoDocument(
     FindOperationsMixin,
     InsertOperationsMixin,
     UpdateOperationsMixin,
-    kw_only=True
+    metaclass=_AutoKwOnlyMeta,
+    kw_only=True,
 ):
     """
     Abstract base document for MongoDB collections with automatic binding.
