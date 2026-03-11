@@ -24,6 +24,7 @@ Minimal **async** MongoDB ODM built for *speed* and *simplicity*, featuring auto
    - [CRUD Operations](#crud-operations)  
    - [Indexes](#indexes)
    - [Lifecycle Hooks](#lifecycle-hooks)
+   - [Contrib: KV Store](#contrib-kv-store)
 6. [Contributing](#contributing)
 7. [License](#license)
 
@@ -241,6 +242,67 @@ class Document(MongoDocument):
 
 Now every insert, save, or update operation automatically keeps `updated_at`
 in sync — no caller-side boilerplate needed.
+
+---
+
+### Contrib: KV Store
+
+`mongospec.contrib.kv_store` provides a ready-made async key-value store
+backed by a MongoDB collection. Designed for multiple inheritance with
+project-specific base documents.
+
+```python
+from mongospec.contrib.kv_store import KVStore, KVStoreItem
+from myapp.db import Document  # your base with timestamps, hooks, etc.
+
+
+class AppStorage(KVStore, Document):
+    __collection_name__ = "app_storage"
+```
+
+A unique index on `key` is created automatically at init time.
+
+**Direct usage:**
+
+```python
+await AppStorage.set("theme", "dark")
+theme = await AppStorage.get("theme")            # "dark"
+theme = await AppStorage.get_or_default("x", 0)  # 0 (no KeyError)
+await AppStorage.set_default("theme", "light")   # "dark" (atomic, no overwrite)
+
+await AppStorage.set_many({"a": 1, "b": 2})
+all_pairs = await AppStorage.get_all()            # {"theme": "dark", "a": 1, "b": 2}
+all_keys  = await AppStorage.keys()               # ["theme", "a", "b"]
+
+await AppStorage.has("theme")                     # True
+await AppStorage.delete_key("theme")              # True
+```
+
+**Typed accessor (`KVStoreItem`):**
+
+```python
+AppStorageItem = KVStoreItem.of(AppStorage)
+
+max_retries = AppStorageItem[int]("max_retries", default=3)
+
+value = await max_retries.get()          # 3 (default, not persisted)
+await max_retries.set_default()          # atomically persist default if missing
+await max_retries.set(10)
+await max_retries.has()                  # True
+await max_retries.delete()               # True
+```
+
+| `KVStore` method | Description |
+|------------------|-------------|
+| `set(key, value)` | Upsert a value by key |
+| `get(key)` | Get value or raise `KeyError` |
+| `get_or_default(key, default)` | Get value or return default |
+| `set_default(key, value)` | Atomic insert-if-absent (`$setOnInsert`) |
+| `delete_key(key)` | Delete a key, return `True` if existed |
+| `has(key)` | Check key existence |
+| `get_all()` | Return all pairs as `dict` |
+| `keys()` | Return all key names |
+| `set_many(items)` | Upsert multiple pairs |
 
 ---
 
