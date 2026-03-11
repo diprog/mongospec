@@ -6,9 +6,9 @@ Designed for use via multiple inheritance with project-specific base documents.
 
 .. code-block:: python
 
-    from mongospec.contrib.kv_store import KVStore, KVStoreItem
+    from mongospec.contrib.kv_store import KVStoreMixin, KVStoreItem
 
-    class AppStorage(KVStore, Document):
+    class AppStorage(KVStoreMixin, Document):
         __collection_name__ = "app_storage"
 
     max_retries = KVStoreItem[int](AppStorage, "max_retries", default=3)
@@ -28,17 +28,17 @@ from mongospec.document.document import MongoDocument
 T = TypeVar("T")
 
 
-class KVStore(MongoDocument, kw_only=True):
+class KVStoreMixin:
     """
-    Async key-value store backed by a MongoDB collection.
+    Mixin providing async key-value store methods.
 
-    Each document represents a single key-value pair.
-    Combine with a project-specific base document via multiple inheritance
-    to inherit lifecycle hooks, timestamps, etc.
+    Does **not** define struct fields — safe for multiple inheritance
+    with any ``MongoDocument`` subclass. The concrete class must define
+    ``key: str`` and ``value: Any | None`` fields.
 
     .. code-block:: python
 
-        class AppStorage(KVStore, Document):
+        class AppStorage(KVStoreMixin, Document):
             __collection_name__ = "app_storage"
 
         await AppStorage.set("theme", "dark")
@@ -48,9 +48,6 @@ class KVStore(MongoDocument, kw_only=True):
     __indexes__: ClassVar[Sequence[mongojet.IndexModel]] = [
         mongojet.IndexModel(keys=[("key", 1)], unique=True),  # type: ignore[call-arg]
     ]
-
-    key: str
-    value: Any | None = None
 
     @classmethod
     async def set(cls, key: str, value: Any | None) -> None:
@@ -164,9 +161,28 @@ class KVStore(MongoDocument, kw_only=True):
             await cls.set(key, value)
 
 
+class KVStore(KVStoreMixin, MongoDocument, kw_only=True):
+    """
+    Standalone async key-value store backed by a MongoDB collection.
+
+    Includes ``key`` and ``value`` fields. Use this directly if you
+    don't need to combine with a custom base document.
+    For multiple inheritance with your own ``Document`` base, use
+    :class:`KVStoreMixin` instead.
+
+    .. code-block:: python
+
+        class AppStorage(KVStore):
+            __collection_name__ = "app_storage"
+    """
+
+    key: str
+    value: Any | None = None
+
+
 class KVStoreItem(Generic[T]):
     """
-    Typed accessor for a single key in a :class:`KVStore` collection.
+    Typed accessor for a single key in a :class:`KVStoreMixin` collection.
 
     .. code-block:: python
 
@@ -175,14 +191,14 @@ class KVStoreItem(Generic[T]):
         value = await max_retries.get()   # int | None
         await max_retries.set(10)
 
-    :param store: The ``KVStore`` subclass to use.
+    :param store: The ``KVStoreMixin`` subclass to use.
     :param key: Unique setting key.
     :param default: Default value returned (and persisted) when the key is missing.
     """
 
     def __init__(
         self,
-        store: type[KVStore],
+        store: type[KVStoreMixin],
         key: str,
         default: T | None = None,
     ) -> None:
@@ -191,7 +207,7 @@ class KVStoreItem(Generic[T]):
         self._default = default
 
     @classmethod
-    def of(cls, store: type[KVStore]) -> type[KVStoreItem]:
+    def of(cls, store: type[KVStoreMixin]) -> type[KVStoreItem]:
         """
         Create a ``KVStoreItem`` subclass bound to a specific store.
 
@@ -200,7 +216,7 @@ class KVStoreItem(Generic[T]):
             AppStorageItem = KVStoreItem.of(AppStorage)
             max_retries = AppStorageItem[int]("max_retries", default=3)
 
-        :param store: The ``KVStore`` subclass to bind.
+        :param store: The ``KVStoreMixin`` subclass to bind.
         :return: A new ``KVStoreItem`` subclass with *store* pre-filled.
         """
         bound_store = store
@@ -212,6 +228,9 @@ class KVStoreItem(Generic[T]):
                 default: T | None = None,
             ) -> None:
                 super().__init__(store=bound_store, key=key, default=default)
+
+            def __class_getitem__(cls, item: Any) -> type:
+                return cls
 
         BoundKVStoreItem.__name__ = f"{store.__name__}Item"
         BoundKVStoreItem.__qualname__ = f"{store.__name__}Item"
