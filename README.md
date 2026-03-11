@@ -22,8 +22,9 @@ Minimal **async** MongoDB ODM built for *speed* and *simplicity*, featuring auto
    - [Connection Management](#connection-management)  
    - [Collection Binding](#collection-binding)  
    - [CRUD Operations](#crud-operations)  
-   - [Indexes](#indexes)  
-6. [Contributing](#contributing)  
+   - [Indexes](#indexes)
+   - [Lifecycle Hooks](#lifecycle-hooks)
+6. [Contributing](#contributing)
 7. [License](#license)
 
 ---
@@ -50,7 +51,7 @@ import msgspec
 
 import mongospec
 from mongospec import MongoDocument
-from mongospec import IndexModel
+from mongojet import IndexModel
 
 
 class User(MongoDocument):
@@ -201,3 +202,54 @@ await mongospec.init(db, document_types=models)
 * `module_filter=".*models.*"` to restrict traversal
 
 See the full function signature in [`mongospec/utils.py`](./mongospec/utils.py).
+
+---
+
+### Lifecycle Hooks
+
+`MongoDocument` provides two hooks that subclasses can override to inject
+custom logic before write operations:
+
+| Hook | Called by | Purpose |
+|------|-----------|---------|
+| `__pre_save__(self) -> None` | `insert()`, `insert_one()`, `insert_many()`, `save()` | Mutate instance fields before serialization |
+| `__pre_update__(cls, update) -> dict` | `update_one()`, `update_many()`, `update_by_id()`, `find_one_and_update()` | Modify the update document before execution |
+
+**Example — automatic `updated_at`:**
+
+```python
+from datetime import datetime, UTC
+from typing import Any
+
+import msgspec
+
+from mongospec import MongoDocument
+
+
+class Document(MongoDocument):
+    created_at: datetime = msgspec.field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = msgspec.field(default_factory=lambda: datetime.now(UTC))
+
+    def __pre_save__(self) -> None:
+        self.updated_at = datetime.now(UTC)
+
+    @classmethod
+    def __pre_update__(cls, update: dict[str, Any]) -> dict[str, Any]:
+        update.setdefault("$set", {}).setdefault("updated_at", datetime.now(UTC))
+        return update
+```
+
+Now every insert, save, or update operation automatically keeps `updated_at`
+in sync — no caller-side boilerplate needed.
+
+---
+
+## Contributing
+
+Contributions, issues and feature requests are welcome.
+
+---
+
+## License
+
+[MIT](https://opensource.org/licenses/MIT)

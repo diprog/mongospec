@@ -114,6 +114,36 @@ class MongoDocument(
         """
         raise NotImplementedError(f"Type {expected_type} not supported in dec_hook")
 
+    def __pre_save__(self) -> None:
+        """
+        Hook called before instance-level write operations (insert, save).
+        Override in subclasses to modify fields before persisting.
+
+        .. code-block:: python
+
+            def __pre_save__(self) -> None:
+                self.updated_at = datetime.now(UTC)
+        """
+
+    @classmethod
+    def __pre_update__(cls, update: dict[str, Any]) -> dict[str, Any]:
+        """
+        Hook called before class-level update operations
+        (update_one, update_many, update_by_id, find_one_and_update).
+        Override in subclasses to inject extra update operators.
+
+        :param update: The MongoDB update document.
+        :return: The (possibly modified) update document.
+
+        .. code-block:: python
+
+            @classmethod
+            def __pre_update__(cls, update: dict[str, Any]) -> dict[str, Any]:
+                update.setdefault("$set", {})["updated_at"] = datetime.now(UTC)
+                return update
+        """
+        return update
+
     def enc_hook(self, obj: Any) -> Any:
         """
         Hook for custom serialization logic. Override in subclasses.

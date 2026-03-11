@@ -38,6 +38,7 @@ class InsertOperationsMixin(BaseOperations):
             await user.insert(bypass_document_validation=True)
         """
         self._validate_document_type(self)
+        self.__pre_save__()
         result = await self._get_collection().insert_one(
             self.dump(),
             **kwargs
@@ -66,6 +67,7 @@ class InsertOperationsMixin(BaseOperations):
             await User.insert_one(User(name="Bob"))
         """
         cls._validate_document_type(document)
+        document.__pre_save__()
         result = await cls._get_collection().insert_one(
             document.dump(),
             **kwargs
@@ -96,6 +98,9 @@ class InsertOperationsMixin(BaseOperations):
         """
         if not all(isinstance(d, cls) for d in documents):
             raise TypeError(f"All documents must be of type {cls.__name__}")
+
+        for d in documents:
+            d.__pre_save__()
 
         result = await cls._get_collection().insert_many(
             [d.dump() for d in documents],

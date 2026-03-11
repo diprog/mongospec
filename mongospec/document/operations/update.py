@@ -47,6 +47,7 @@ class UpdateOperationsMixin(BaseOperations):
                 return await self.insert(**kwargs)
             raise ValueError("Document requires _id for save without upsert")
 
+        self.__pre_save__()
         collection = self._get_collection()
         result = await collection.replace_one(
             {"_id": self._id},
@@ -86,6 +87,7 @@ class UpdateOperationsMixin(BaseOperations):
                 {"$inc": {"login_count": 1}}
             )
         """
+        update = cls.__pre_update__(update)
         result = await cls._get_collection().update_one(filter, update, **kwargs)
         return result["modified_count"]
 
@@ -104,6 +106,7 @@ class UpdateOperationsMixin(BaseOperations):
         :param kwargs: Additional arguments for update_many()
         :return: Number of modified documents
         """
+        update = cls.__pre_update__(update)
         result = await cls._get_collection().update_many(filter, update, **kwargs)
         return result["modified_count"]
 
@@ -131,6 +134,7 @@ class UpdateOperationsMixin(BaseOperations):
             )
         """
         document_id = ObjectId(document_id) if isinstance(document_id, str) else document_id
+        update = cls.__pre_update__(update)
         result = await cls._get_collection().update_one(
             {"_id": document_id},
             update,
@@ -164,6 +168,7 @@ class UpdateOperationsMixin(BaseOperations):
                 return_updated=True
             )
         """
+        update = cls.__pre_update__(update)
         options = {
             "return_document": "after" if return_updated else "before",
             **kwargs
