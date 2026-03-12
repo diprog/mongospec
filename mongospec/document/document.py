@@ -10,7 +10,7 @@ from typing import Any, ClassVar, Self, Sequence, final
 import mongojet
 import msgspec
 from bson import ObjectId, int64
-from msgspec._core import StructMeta
+from msgspec import StructMeta
 
 from .operations import (
     CountOperationsMixin, DeleteOperationsMixin, FindOperationsMixin,
