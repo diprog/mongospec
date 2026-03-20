@@ -21,7 +21,8 @@ Minimal **async** MongoDB ODM built for *speed* and *simplicity*, featuring auto
    - [Document Models](#document-models)  
    - [Connection Management](#connection-management)  
    - [Collection Binding](#collection-binding)  
-   - [CRUD Operations](#crud-operations)  
+   - [CRUD Operations](#crud-operations)
+   - [Document References](#document-references)
    - [Indexes](#indexes)
    - [Lifecycle Hooks](#lifecycle-hooks)
    - [Contrib: KV Store](#contrib-kv-store)
@@ -109,6 +110,7 @@ Each file is self-contained and can be executed directly:
 | `batch_operations.py`      | Bulk insert / update / delete                |
 | `atomic_updates.py`        | Optimistic-locking with version field        |
 | `upsert_operations.py`     | Upsert via `save` and `update_one`           |
+| `document_references.py`   | Transparent typed document references         |
 | `projection_example.py`    | Field selection for performance              |
 
 ---
@@ -119,6 +121,8 @@ Each file is self-contained and can be executed directly:
 * **Async first** – built on `mongojet`, fully `await`-able API.
 * **Typed & fast** – data classes powered by `msgspec` for
   ultra-fast (de)serialization.
+* **Document references** – transparent typed references with
+  automatic resolution, batch fetching, and cascading save.
 * **Declarative indexes** – define indexes right on the model with
   familiar `pymongo`/`mongojet` `IndexModel`s.
 * **Batteries included** – helpers for common CRUD patterns, bulk and
@@ -152,6 +156,50 @@ The `MongoDocument` class (and its mixins) exposes a rich async CRUD API:
 `insert`, `find`, `update`, `delete`, `count`, cursors, bulk helpers,
 atomic `find_one_and_update`, upserts, etc.
 See scripts in `examples/` grouped by operation type.
+
+### Document References
+
+Any field typed as a `MongoDocument` subclass is automatically a reference —
+stored as plain `ObjectId` in MongoDB, resolved transparently on read.
+
+```python
+from mongospec import MongoDocument
+
+class User(MongoDocument):
+    name: str
+
+class Tag(MongoDocument):
+    label: str
+
+class Post(MongoDocument):
+    title: str
+    author: User                          # required reference
+    reviewer: User | None = None          # optional
+    tags: list[Tag] = []                  # list of references
+
+# Create — pass real document objects
+post = Post(title="Hello", author=user, tags=[tag])
+await post.insert()
+
+# Read — references auto-resolved (full type support for linters)
+post = await Post.find_one({"title": "Hello"})
+print(post.author.name)                   # "Alice" — full autocomplete
+
+# Batch resolve (minimal queries: 1 per referenced class)
+posts = await Post.find_all({})           # auto-resolved
+
+# Skip resolution for performance
+post = await Post.find_one({...}, resolve_refs=False)
+
+# Cascading save (enabled by default)
+post.author.name = "Updated"
+await post.save()                          # saves post AND author
+```
+
+See **[`examples/document_references.py`](./examples/document_references.py)** for
+a complete walkthrough.
+
+---
 
 ### Indexes
 
