@@ -52,14 +52,15 @@ def default_dec_hook(expected_type: type, obj: Any) -> Any:
             return ObjectId(obj)
         except Exception as e:
             raise ValueError(f"Invalid ObjectId: {obj}") from e
+
     raise NotImplementedError(f"Unsupported type: {expected_type}")
 
 
 def default_enc_hook(obj: Any) -> Any:
-    """Default encoding hook that raises NotImplementedError.
+    """Default encoding hook for custom types.
 
     :param obj: The object to encode.
-    :raises NotImplementedError: Always raised since this is a placeholder.
+    :raises NotImplementedError: If the type is not supported.
     """
     raise NotImplementedError(f"Type {type(obj)} not supported")
 
@@ -205,6 +206,17 @@ class MongoDocument(
             return default_enc_hook(obj)
 
     @classmethod
+    def _get_ref_fields(cls) -> dict[str, Any]:
+        """Return cached ref field info for this class.
+
+        Computed lazily once per class via ``detect_ref_fields``.
+        """
+        if "__ref_fields__" not in cls.__dict__:
+            from mongospec.refs import detect_ref_fields
+            cls.__ref_fields__ = detect_ref_fields(cls)
+        return cls.__ref_fields__
+
+    @classmethod
     def get_collection(cls) -> mongojet.Collection:
         """
         Retrieve the bound MongoDB collection.
@@ -253,6 +265,7 @@ class MongoDocument(
         Notes:
             - Uses `msgspec` serialization with custom `enc_hook` handling.
             - Automatically removes `_id` if it is `None`, allowing MongoDB to generate one.
+            - Reference fields (MongoDocument subclasses) are collapsed to ObjectId.
         """
         data = msgspec.to_builtins(
             self,
@@ -260,6 +273,35 @@ class MongoDocument(
             builtin_types=self.__preserve_types__,
             **kwargs
         )
+
+        # Post-process: collapse ref fields dict → ObjectId
+        for field_name, ref_info in self._get_ref_fields().items():
+            value = data.get(field_name)
+            if value is None:
+                continue
+            if ref_info.is_list:
+                collapsed = []
+                for item in value:
+                    if isinstance(item, dict):
+                        oid = item.get("_id")
+                        if oid is None:
+                            raise ValueError(
+                                f"Cannot reference unsaved {ref_info.document_class.__name__} "
+                                f"in field '{field_name}'"
+                            )
+                        collapsed.append(oid)
+                    else:
+                        collapsed.append(item)
+                data[field_name] = collapsed
+            elif isinstance(value, dict):
+                oid = value.get("_id")
+                if oid is None:
+                    raise ValueError(
+                        f"Cannot reference unsaved {ref_info.document_class.__name__} "
+                        f"in field '{field_name}'"
+                    )
+                data[field_name] = oid
+
         # Strip None _id to allow MongoDB to generate it
         if data.get("_id") is None:
             del data["_id"]
