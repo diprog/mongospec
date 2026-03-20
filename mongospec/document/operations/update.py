@@ -19,11 +19,14 @@ from .base import BaseOperations, T
 class UpdateOperationsMixin(BaseOperations):
     """Mixin class providing all update operations for MongoDocument"""
 
-    async def save(self: T, upsert: bool = False, **kwargs: Unpack[ReplaceOptions]) -> T:
+    async def save(
+        self: T, upsert: bool = False, save_refs: bool = True, **kwargs: Unpack[ReplaceOptions]
+    ) -> T:
         """
         Persist document changes to the database.
 
         :param upsert: Insert document if it doesn't exist (default: False)
+        :param save_refs: Also save all resolved reference documents (default: True)
         :param kwargs: Additional arguments for replace_one()
         :return: Current document instance
         :raises ValueError: If _id missing and upsert=False
@@ -31,14 +34,12 @@ class UpdateOperationsMixin(BaseOperations):
 
         .. code-block:: python
 
-            # Modify and save existing document
-            user = await User.find_one({"email": "alice@example.com"})
-            user.name = "Alice Smith"
-            await user.save()
+            # Modify referenced document and save everything
+            post.author.name = "Alice Smith"
+            await post.save()  # saves post AND author
 
-            # Upsert new document
-            new_user = User(name="Bob", email="bob@example.com")
-            await new_user.save(upsert=True)
+            # Save only this document
+            await post.save(save_refs=False)
         """
         self._validate_document_type(self)
 
@@ -46,6 +47,9 @@ class UpdateOperationsMixin(BaseOperations):
             if upsert:
                 return await self.insert(**kwargs)
             raise ValueError("Document requires _id for save without upsert")
+
+        if save_refs:
+            await self._save_resolved_refs()
 
         self.__pre_save__()
         collection = self._get_collection()
@@ -63,6 +67,21 @@ class UpdateOperationsMixin(BaseOperations):
             self._id = result["upserted_id"]
 
         return self
+
+    async def _save_resolved_refs(self: T) -> None:
+        """Save all resolved MongoDocument reference fields."""
+        from mongospec.refs import is_document_type
+
+        for field_name, ref_info in self._get_ref_fields().items():
+            value = getattr(self, field_name, None)
+            if value is None:
+                continue
+            if ref_info.is_list:
+                for item in value:
+                    if is_document_type(type(item)) and item._id is not None:
+                        await item.save(save_refs=True)
+            elif is_document_type(type(value)) and value._id is not None:
+                await value.save(save_refs=True)
 
     @classmethod
     async def update_one(
@@ -148,6 +167,8 @@ class UpdateOperationsMixin(BaseOperations):
             filter: Document,
             update: Document | Sequence[Document],
             return_updated: bool = True,
+            *,
+            resolve_refs: bool = True,
             **kwargs: Unpack[FindOneAndUpdateOptions]
     ) -> T | None:
         """
@@ -156,6 +177,7 @@ class UpdateOperationsMixin(BaseOperations):
         :param filter: Query to match document
         :param update: MongoDB update operations
         :param return_updated: Return updated document (default: True)
+        :param resolve_refs: Resolve MongoDocument reference fields (default: True)
         :param kwargs: Additional arguments for find_one_and_update()
         :return: Updated document or None if not found
 
@@ -180,4 +202,12 @@ class UpdateOperationsMixin(BaseOperations):
             **options
         )
 
-        return cls.load(result) if result else None
+        if result is None:
+            return None
+        if resolve_refs:
+            ref_fields = cls._get_ref_fields()
+            if ref_fields:
+                from mongospec.refs import resolve_ref_data
+                result = await resolve_ref_data(ref_fields, result)
+        from .find import _load_single
+        return _load_single(cls, result, resolve_refs)

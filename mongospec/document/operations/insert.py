@@ -26,6 +26,7 @@ class InsertOperationsMixin(BaseOperations):
         :param kwargs: Additional arguments passed to insert_one()
         :return: The inserted document with _id populated
         :raises TypeError: If document validation fails
+        :raises ValueError: If any referenced document is unsaved
         :raises RuntimeError: If collection not initialized
 
         .. code-block:: python
@@ -38,6 +39,7 @@ class InsertOperationsMixin(BaseOperations):
             await user.insert(bypass_document_validation=True)
         """
         self._validate_document_type(self)
+        self._validate_refs()
         self.__pre_save__()
         result = await self._get_collection().insert_one(
             self.dump(),
@@ -59,6 +61,7 @@ class InsertOperationsMixin(BaseOperations):
         :param kwargs: Additional arguments passed to insert_one()
         :return: Inserted document with _id populated
         :raises TypeError: If document validation fails
+        :raises ValueError: If any referenced document is unsaved
         :raises RuntimeError: If collection not initialized
 
         .. code-block:: python
@@ -67,6 +70,7 @@ class InsertOperationsMixin(BaseOperations):
             await User.insert_one(User(name="Bob"))
         """
         cls._validate_document_type(document)
+        document._validate_refs()
         document.__pre_save__()
         result = await cls._get_collection().insert_one(
             document.dump(),
