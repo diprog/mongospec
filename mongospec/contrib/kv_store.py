@@ -22,6 +22,7 @@ from collections.abc import Sequence
 from typing import Any, ClassVar, Generic, TypeVar
 
 import mongojet
+import msgspec
 
 from mongospec.document.document import MongoDocument
 
@@ -57,6 +58,8 @@ class KVStoreMixin:
         :param key: Unique setting key.
         :param value: Value to store; may be ``None``.
         """
+        if isinstance(value, msgspec.Struct):
+            value = msgspec.to_builtins(value)
         await cls.update_one(
             {"key": key},
             {"$set": {"value": value}},
@@ -196,6 +199,8 @@ class KVStoreItem(Generic[T]):
     :param default: Default value returned (and persisted) when the key is missing.
     """
 
+    _item_type: type | None = None
+
     def __init__(
         self,
         store: type[KVStoreMixin],
@@ -205,6 +210,10 @@ class KVStoreItem(Generic[T]):
         self._store = store
         self._key = key
         self._default = default
+
+    def __class_getitem__(cls, item: Any) -> type:
+        sub = type(cls.__name__, (cls,), {"_item_type": item})
+        return sub
 
     @classmethod
     def of(cls, store: type[KVStoreMixin]) -> type[KVStoreItem]:
@@ -229,9 +238,6 @@ class KVStoreItem(Generic[T]):
             ) -> None:
                 super().__init__(store=bound_store, key=key, default=default)
 
-            def __class_getitem__(cls, item: Any) -> type:
-                return cls
-
         BoundKVStoreItem.__name__ = f"{store.__name__}Item"
         BoundKVStoreItem.__qualname__ = f"{store.__name__}Item"
         return BoundKVStoreItem
@@ -245,7 +251,16 @@ class KVStoreItem(Generic[T]):
 
         :return: The stored value cast to ``T``, or the default.
         """
-        return await self._store.get_or_default(self._key, self._default)  # type: ignore[return-value]
+        raw = await self._store.get_or_default(self._key, self._default)
+        if (
+            raw is not None
+            and self._item_type is not None
+            and isinstance(self._item_type, type)
+            and issubclass(self._item_type, msgspec.Struct)
+            and not isinstance(raw, self._item_type)
+        ):
+            return msgspec.convert(raw, self._item_type)  # type: ignore[return-value]
+        return raw  # type: ignore[return-value]
 
     async def set(self, value: T | None) -> None:
         """
