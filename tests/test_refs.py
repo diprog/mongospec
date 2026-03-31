@@ -4,7 +4,7 @@ import pytest_asyncio
 from bson import ObjectId
 
 import mongospec
-from mongospec import MongoDocument
+from mongospec import MongoDocument, RecursiveInsertError
 
 
 # ---------------------------------------------------------------------------
@@ -32,13 +32,24 @@ class Post(MongoDocument):
     tags: list[Tag] = []
 
 
+class ExplodingPost(MongoDocument):
+    __collection_name__ = "test_exploding_posts"
+    title: str
+    author: User
+    tags: list[Tag] = []
+
+    def __pre_save__(self) -> None:
+        if self.title == "explode":
+            raise RuntimeError("boom")
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
 @pytest_asyncio.fixture
 async def init_models(db):
-    await mongospec.init(db, document_types=[User, Tag, Category, Post])
+    await mongospec.init(db, document_types=[User, Tag, Category, Post, ExplodingPost])
 
 
 @pytest_asyncio.fixture
@@ -328,6 +339,61 @@ class TestInsertValidation:
         post = Post(title="Fail", author=unsaved)
         with pytest.raises(ValueError, match="unsaved"):
             await Post.insert_one(post)
+
+
+class TestRecursiveInsert:
+
+    async def test_insert_recursive_inserts_unsaved_refs(self, saved_user, init_models):
+        tag_a = Tag(label="nested-a")
+        tag_b = Tag(label="nested-b")
+        post = Post(title="Recursive", author=saved_user, tags=[tag_a, tag_b])
+
+        result = await post.insert_recursive()
+
+        assert result.document is post
+        assert len(result.created_documents) == 3
+        assert all(document._id is not None for document in result.created_documents)
+
+        found = await Post.find_one({"title": "Recursive"})
+        assert found is not None
+        assert found.author._id == saved_user._id
+        assert {tag.label for tag in found.tags} == {"nested-a", "nested-b"}
+
+    async def test_insert_recursive_result_rollback(self, saved_user, init_models):
+        tag = Tag(label="rollback-tag")
+        post = Post(title="Rollbackable", author=saved_user, tags=[tag])
+
+        result = await post.insert_recursive()
+        deleted_count = await result.rollback()
+
+        assert deleted_count == 2
+        assert post._id is None
+        assert tag._id is None
+        assert await Post.find_one({"title": "Rollbackable"}) is None
+        assert await Tag.find_one({"label": "rollback-tag"}) is None
+        assert await User.find_by_id(saved_user._id) is not None
+
+    async def test_insert_recursive_rolls_back_on_parent_failure(self, saved_user, init_models):
+        tag = Tag(label="transient-tag")
+        post = ExplodingPost(title="explode", author=saved_user, tags=[tag])
+
+        with pytest.raises(RecursiveInsertError) as exc_info:
+            await post.insert_recursive()
+
+        assert exc_info.value.result.document is post
+        assert len(exc_info.value.result.created_documents) == 1
+        assert tag._id is None
+        assert post._id is None
+        assert await Tag.find_one({"label": "transient-tag"}) is None
+        assert await ExplodingPost.find_one({"title": "explode"}) is None
+
+    async def test_insert_recursive_cycle_raises(self, init_models):
+        root = Category(title="Root")
+        child = Category(title="Child", parent=root)
+        root.parent = child
+
+        with pytest.raises(RecursiveInsertError, match="cyclic unsaved references"):
+            await root.insert_recursive()
 
 
 # ===========================================================================
