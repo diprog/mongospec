@@ -70,6 +70,54 @@ class AsyncDocumentCursor:
         return _load_many(self.document_class, docs, self._resolve_refs)
 
 
+class DeferredCursor:
+    """Wrapper over a find() coroutine enabling chainable calls.
+
+    Supports multiple usage patterns::
+
+        # Option 1: chainable (recommended)
+        users = await User.find({"active": True}).to_list()
+
+        # Option 2: await then async for
+        cursor = await User.find({"active": True})
+        async for user in cursor:
+            ...
+
+        # Option 3: direct async for
+        async for user in User.find({"active": True}):
+            ...
+    """
+
+    def __init__(self, coro) -> None:
+        self._coro = coro
+        self._cursor: AsyncDocumentCursor | None = None
+
+    def __await__(self):
+        return self._coro.__await__()
+
+    async def _resolve(self) -> AsyncDocumentCursor:
+        if self._cursor is None:
+            self._cursor = await self._coro
+        return self._cursor
+
+    def __aiter__(self):
+        return self._aiter_impl()
+
+    async def _aiter_impl(self):
+        cursor = await self._resolve()
+        async for item in cursor:
+            yield item
+
+    async def to_list(self, length: int | None = None) -> list:
+        """Collect all results into a list.
+
+        :param length: Maximum number of documents. None means no limit.
+        :returns: List of documents.
+        """
+        cursor = await self._resolve()
+        return await cursor.to_list(length)
+
+
 # noinspection PyShadowingBuiltins
 class FindOperationsMixin(BaseOperations):
     """Mixin class providing all find operations for MongoDocument"""
@@ -121,29 +169,38 @@ class FindOperationsMixin(BaseOperations):
         return await cls.find_one({"_id": document_id}, resolve_refs=resolve_refs, **kwargs)
 
     @classmethod
-    async def find(
+    def find(
         cls: type[T],
         filter: Document | None = None,
         *,
         resolve_refs: bool = True,
         **kwargs: Unpack[FindOptions],
-    ) -> AsyncDocumentCursor:
-        """
-        Create async cursor for query results.
+    ) -> DeferredCursor:
+        """Create a cursor for query results.
+
+        Supports chainable calls::
+
+            # Collect into a list
+            users = await User.find({"age": {"$gt": 30}}).to_list()
+
+            # Async iteration
+            async for user in User.find({"age": {"$gt": 30}}):
+                process(user)
+
+            # Await then to_list
+            cursor = await User.find({"age": {"$gt": 30}})
+            users = await cursor.to_list()
 
         :param filter: MongoDB query filter
         :param resolve_refs: Resolve MongoDocument reference fields (default: True)
         :param kwargs: Additional arguments for find()
-        :return: AsyncDocumentCursor instance for iteration
-
-        Example::
-
-            # Iterate over large result set efficiently
-            async for user in User.find({"age": {"$gt": 30}}):
-                process_user(user)
+        :returns: DeferredCursor — awaitable object with .to_list() method
         """
-        cursor = await cls._get_collection().find(filter or {}, **kwargs)
-        return AsyncDocumentCursor(cursor, cls, resolve_refs=resolve_refs)
+        async def _create_cursor():
+            cursor = await cls._get_collection().find(filter or {}, **kwargs)
+            return AsyncDocumentCursor(cursor, cls, resolve_refs=resolve_refs)
+
+        return DeferredCursor(_create_cursor())
 
     @classmethod
     async def find_all(
