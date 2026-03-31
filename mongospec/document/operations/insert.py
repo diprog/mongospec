@@ -5,15 +5,178 @@ Provides all document insertion capabilities including:
 - Single document insertion
 - Bulk document insertion
 - Insert with validation
+- Recursive graph insertion with rollback support
 """
 
 from collections.abc import Sequence
-from typing import Unpack
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Generic, Unpack
 
 from bson import ObjectId
-from mongojet._types import Document, InsertManyOptions, InsertOneOptions
+from mongojet._types import DeleteOptions, Document, InsertManyOptions, InsertOneOptions
 
 from .base import BaseOperations, T
+
+if TYPE_CHECKING:
+    from mongospec.document.document import MongoDocument
+
+
+@dataclass(slots=True)
+class RollbackFailure:
+    """Information about a single document rollback failure."""
+
+    document: "MongoDocument"
+    error: Exception
+
+
+@dataclass(slots=True)
+class RecursiveInsertResult(Generic[T]):
+    """Result of a recursive document graph insertion."""
+
+    document: T
+    created_documents: list["MongoDocument"] = field(default_factory=list)
+    _created_ids: set[int] = field(default_factory=set, init=False, repr=False)
+
+    def add_created(self, document: "MongoDocument") -> None:
+        """Register a document created by the current operation."""
+
+        key = id(document)
+        if key in self._created_ids:
+            return
+        self._created_ids.add(key)
+        self.created_documents.append(document)
+
+    async def rollback(self, **kwargs: Unpack[DeleteOptions]) -> int:
+        """Roll back all documents created by this recursive insertion.
+
+        :param kwargs: Additional arguments for delete_one()
+        :return: Number of successfully deleted documents
+        :raises RecursiveRollbackError: If some documents could not be deleted
+        """
+
+        deleted_count = 0
+        failures: list[RollbackFailure] = []
+
+        for document in reversed(self.created_documents):
+            if document._id is None:
+                continue
+
+            try:
+                deleted_count += await document.delete(**kwargs)
+                document._id = None
+            except Exception as exc:
+                failures.append(RollbackFailure(document=document, error=exc))
+
+        if failures:
+            raise RecursiveRollbackError(
+                result=self,
+                failures=failures,
+                deleted_count=deleted_count,
+            )
+
+        return deleted_count
+
+
+class RecursiveRollbackError(RuntimeError):
+    """Error rolling back documents created by a recursive insertion."""
+
+    def __init__(
+        self,
+        *,
+        result: RecursiveInsertResult,
+        failures: list[RollbackFailure],
+        deleted_count: int,
+    ) -> None:
+        self.result = result
+        self.failures = tuple(failures)
+        self.deleted_count = deleted_count
+
+        documents = ", ".join(
+            f"{failure.document.__class__.__name__}({_format_document_id(failure.document)})"
+            for failure in failures
+        )
+        super().__init__(
+            f"Failed to rollback {len(failures)} recursively inserted documents: {documents}"
+        )
+
+
+class RecursiveInsertError(RuntimeError):
+    """Recursive insertion error with access to partial result."""
+
+    def __init__(
+        self,
+        *,
+        document: "MongoDocument",
+        result: RecursiveInsertResult,
+        rollback_error: RecursiveRollbackError | None = None,
+    ) -> None:
+        self.document = document
+        self.result = result
+        self.rollback_error = rollback_error
+
+        message = f"Failed to recursively insert {document.__class__.__name__}"
+        if rollback_error is not None:
+            message += "; rollback also failed"
+        elif result.created_documents:
+            message += "; created documents were rolled back"
+
+        super().__init__(message)
+
+
+def _format_document_id(document: "MongoDocument") -> str:
+    return str(document._id) if document._id is not None else "unsaved"
+
+
+async def _insert_recursive(
+    document: "MongoDocument",
+    *,
+    result: RecursiveInsertResult,
+    active_chain: list["MongoDocument"],
+    **kwargs: Unpack[InsertOneOptions],
+) -> None:
+    from mongospec.refs import is_document_type
+
+    if document._id is not None:
+        return
+
+    document_key = id(document)
+    active_keys = {id(item) for item in active_chain}
+    if document_key in active_keys:
+        cycle = " -> ".join(
+            [item.__class__.__name__ for item in [*active_chain, document]]
+        )
+        raise ValueError(
+            f"Cannot recursively insert cyclic unsaved references: {cycle}"
+        )
+
+    active_chain.append(document)
+    try:
+        for field_name, ref_info in document._get_ref_fields().items():
+            value = getattr(document, field_name, None)
+            if value is None:
+                continue
+
+            if ref_info.is_list:
+                for item in value:
+                    if is_document_type(type(item)) and item._id is None:
+                        await _insert_recursive(
+                            item,
+                            result=result,
+                            active_chain=active_chain,
+                            **kwargs,
+                        )
+            elif is_document_type(type(value)) and value._id is None:
+                await _insert_recursive(
+                    value,
+                    result=result,
+                    active_chain=active_chain,
+                    **kwargs,
+                )
+
+        await document.insert(**kwargs)
+        result.add_created(document)
+    finally:
+        active_chain.pop()
 
 
 class InsertOperationsMixin(BaseOperations):
@@ -48,6 +211,48 @@ class InsertOperationsMixin(BaseOperations):
         self._id = result["inserted_id"]
         return self
 
+    async def insert_recursive(self: T, **kwargs: Unpack[InsertOneOptions]) -> RecursiveInsertResult[T]:
+        """Recursively insert the document and all its unsaved references.
+
+        Unsaved child documents are inserted before the parent. Already saved
+        references are left untouched. If the operation fails after a partial
+        insertion, a best-effort rollback is performed and
+        ``RecursiveInsertError`` is raised.
+
+        :param kwargs: Additional arguments passed to insert_one()
+        :return: Result with list of created documents and rollback()
+        :raises ValueError: If root document is already saved or a cycle exists
+        :raises RecursiveInsertError: If insertion or rollback fails
+        """
+
+        self._validate_document_type(self)
+        if self._id is not None:
+            raise ValueError("Recursive insert requires an unsaved root document")
+
+        result = RecursiveInsertResult(document=self)
+        try:
+            await _insert_recursive(
+                self,
+                result=result,
+                active_chain=[],
+                **kwargs,
+            )
+        except Exception as exc:
+            rollback_error = None
+            if result.created_documents:
+                try:
+                    await result.rollback()
+                except RecursiveRollbackError as rollback_exc:
+                    rollback_error = rollback_exc
+
+            raise RecursiveInsertError(
+                document=self,
+                result=result,
+                rollback_error=rollback_error,
+            ) from exc
+
+        return result
+
     @classmethod
     async def insert_one(
             cls: type[T],
@@ -78,6 +283,22 @@ class InsertOperationsMixin(BaseOperations):
         )
         document._id = result["inserted_id"]
         return document
+
+    @classmethod
+    async def insert_one_recursive(
+            cls: type[T],
+            document: T,
+            **kwargs: Unpack[InsertOneOptions]
+    ) -> RecursiveInsertResult[T]:
+        """Recursively insert a single document with its unsaved references.
+
+        :param document: Root document to insert
+        :param kwargs: Additional arguments passed to insert_one()
+        :return: Result with list of created documents and rollback()
+        """
+
+        cls._validate_document_type(document)
+        return await document.insert_recursive(**kwargs)
 
     @classmethod
     async def insert_many(

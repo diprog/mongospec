@@ -9,6 +9,10 @@ from .document.operations import (
     DeleteOperationsMixin,
     FindOperationsMixin,
     InsertOperationsMixin,
+    RecursiveInsertError,
+    RecursiveInsertResult,
+    RecursiveRollbackError,
+    RollbackFailure,
     UpdateOperationsMixin,
 )
 
@@ -27,6 +31,10 @@ __all__ = [
     "DeleteOperationsMixin",
     "FindOperationsMixin",
     "InsertOperationsMixin",
+    "RecursiveInsertResult",
+    "RecursiveInsertError",
+    "RecursiveRollbackError",
+    "RollbackFailure",
     "UpdateOperationsMixin",
 
     # Public re-exports
