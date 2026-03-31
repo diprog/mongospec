@@ -196,6 +196,30 @@ post.author.name = "Updated"
 await post.save()                          # saves post AND author
 ```
 
+### Recursive Insert
+
+If a document graph contains unsaved referenced documents, use
+`insert_recursive()` on the root document. The ODM inserts unsaved child
+references first, then the parent, and returns a `RecursiveInsertResult`
+containing all created documents in insertion order.
+
+```python
+result = await Post(
+    title="Hello",
+    author=existing_user,
+    tags=[Tag(label="python"), Tag(label="async")],
+).insert_recursive()
+
+print([type(doc).__name__ for doc in result.created_documents])
+# ['Tag', 'Tag', 'Post']
+
+await result.rollback()  # deletes created docs in reverse order
+```
+
+If recursive insertion fails after partial success, `mongospec` performs a
+best-effort rollback and raises `RecursiveInsertError` with the partial
+`result`.
+
 See **[`examples/document_references.py`](./examples/document_references.py)** for
 a complete walkthrough.
 
