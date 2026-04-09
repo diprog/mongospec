@@ -1,6 +1,7 @@
 """Tests for transparent document references (MongoDocument as field type)."""
 import pytest
 import pytest_asyncio
+import msgspec
 from bson import ObjectId
 
 import mongospec
@@ -32,6 +33,17 @@ class Post(MongoDocument):
     tags: list[Tag] = []
 
 
+class Message(msgspec.Struct, kw_only=True):
+    sender: User
+    text: str = ""
+
+
+class Thread(MongoDocument):
+    __collection_name__ = "test_threads"
+    title: str
+    messages: list[Message] = []
+
+
 class ExplodingPost(MongoDocument):
     __collection_name__ = "test_exploding_posts"
     title: str
@@ -49,7 +61,10 @@ class ExplodingPost(MongoDocument):
 
 @pytest_asyncio.fixture
 async def init_models(db):
-    await mongospec.init(db, document_types=[User, Tag, Category, Post, ExplodingPost])
+    await mongospec.init(
+        db,
+        document_types=[User, Tag, Category, Post, Thread, ExplodingPost],
+    )
 
 
 @pytest_asyncio.fixture
@@ -103,6 +118,15 @@ class TestDump:
         post = Post(title="Fail", author=unsaved)
         with pytest.raises(ValueError, match="unsaved"):
             post.dump()
+
+    async def test_dump_nested_struct_ref(self, saved_user):
+        thread = Thread(
+            title="ThreadDump",
+            messages=[Message(sender=saved_user, text="hello")],
+        )
+        data = thread.dump()
+        assert isinstance(data["messages"][0]["sender"], ObjectId)
+        assert data["messages"][0]["sender"] == saved_user._id
 
 
 # ===========================================================================
@@ -227,6 +251,30 @@ class TestResolveRefs:
         labels = {t.label for t in found.tags}
         assert labels == {"tag-0", "tag-1", "tag-2"}
 
+    async def test_nested_struct_refs_resolved(self, saved_user):
+        thread = Thread(
+            title="NestedResolved",
+            messages=[Message(sender=saved_user, text="hello")],
+        )
+        await thread.insert()
+
+        found = await Thread.find_one({"title": "NestedResolved"})
+        assert found is not None
+        assert found.messages[0].sender._id == saved_user._id
+        assert found.messages[0].sender.name == "Alice"
+
+    async def test_nested_struct_refs_resolve_refs_false(self, saved_user):
+        thread = Thread(
+            title="NestedUnresolved",
+            messages=[Message(sender=saved_user, text="hello")],
+        )
+        await thread.insert()
+
+        found = await Thread.find_one({"title": "NestedUnresolved"}, resolve_refs=False)
+        assert found is not None
+        assert found.messages[0].sender._id == saved_user._id
+        assert found.messages[0].sender.name == ""
+
 
 # ===========================================================================
 # Nested / self-referencing
@@ -315,6 +363,21 @@ class TestCascadingSave:
         db_user = await User.find_by_id(saved_user._id)
         assert db_user.name == "Alice"
 
+    async def test_save_refs_nested_struct(self, saved_user):
+        thread = Thread(
+            title="NestedCascade",
+            messages=[Message(sender=saved_user, text="hello")],
+        )
+        await thread.insert()
+
+        found = await Thread.find_one({"title": "NestedCascade"})
+        found.messages[0].sender.name = "Alice Nested Updated"
+
+        await found.save()
+
+        db_user = await User.find_by_id(saved_user._id)
+        assert db_user.name == "Alice Nested Updated"
+
 
 # ===========================================================================
 # Insert validation
@@ -339,6 +402,14 @@ class TestInsertValidation:
         post = Post(title="Fail", author=unsaved)
         with pytest.raises(ValueError, match="unsaved"):
             await Post.insert_one(post)
+
+    async def test_insert_nested_struct_unsaved_ref_raises(self, init_models):
+        thread = Thread(
+            title="NestedFail",
+            messages=[Message(sender=User(name="Ghost"), text="hello")],
+        )
+        with pytest.raises(ValueError, match="unsaved"):
+            await thread.insert()
 
 
 class TestRecursiveInsert:

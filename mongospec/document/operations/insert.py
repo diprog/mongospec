@@ -108,10 +108,12 @@ class RecursiveInsertError(RuntimeError):
         *,
         document: "MongoDocument",
         result: RecursiveInsertResult,
+        cause: Exception | None = None,
         rollback_error: RecursiveRollbackError | None = None,
     ) -> None:
         self.document = document
         self.result = result
+        self.cause = cause
         self.rollback_error = rollback_error
 
         message = f"Failed to recursively insert {document.__class__.__name__}"
@@ -119,6 +121,8 @@ class RecursiveInsertError(RuntimeError):
             message += "; rollback also failed"
         elif result.created_documents:
             message += "; created documents were rolled back"
+        elif cause is not None:
+            message += f": {cause}"
 
         super().__init__(message)
 
@@ -151,23 +155,12 @@ async def _insert_recursive(
 
     active_chain.append(document)
     try:
-        for field_name, ref_info in document._get_ref_fields().items():
-            value = getattr(document, field_name, None)
-            if value is None:
-                continue
+        from mongospec.refs import iter_ref_documents
 
-            if ref_info.is_list:
-                for item in value:
-                    if is_document_type(type(item)) and item._id is None:
-                        await _insert_recursive(
-                            item,
-                            result=result,
-                            active_chain=active_chain,
-                            **kwargs,
-                        )
-            elif is_document_type(type(value)) and value._id is None:
+        for ref_document in iter_ref_documents(document._get_ref_fields(), document):
+            if is_document_type(type(ref_document)) and ref_document._id is None:
                 await _insert_recursive(
-                    value,
+                    ref_document,
                     result=result,
                     active_chain=active_chain,
                     **kwargs,
@@ -248,6 +241,7 @@ class InsertOperationsMixin(BaseOperations):
             raise RecursiveInsertError(
                 document=self,
                 result=result,
+                cause=exc,
                 rollback_error=rollback_error,
             ) from exc
 

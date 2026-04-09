@@ -274,33 +274,10 @@ class MongoDocument(
             **kwargs
         )
 
-        # Post-process: collapse ref fields dict → ObjectId
-        for field_name, ref_info in self._get_ref_fields().items():
-            value = data.get(field_name)
-            if value is None:
-                continue
-            if ref_info.is_list:
-                collapsed = []
-                for item in value:
-                    if isinstance(item, dict):
-                        oid = item.get("_id")
-                        if oid is None:
-                            raise ValueError(
-                                f"Cannot reference unsaved {ref_info.document_class.__name__} "
-                                f"in field '{field_name}'"
-                            )
-                        collapsed.append(oid)
-                    else:
-                        collapsed.append(item)
-                data[field_name] = collapsed
-            elif isinstance(value, dict):
-                oid = value.get("_id")
-                if oid is None:
-                    raise ValueError(
-                        f"Cannot reference unsaved {ref_info.document_class.__name__} "
-                        f"in field '{field_name}'"
-                    )
-                data[field_name] = oid
+        ref_fields = self._get_ref_fields()
+        if ref_fields:
+            from mongospec.refs import collapse_ref_data
+            data = collapse_ref_data(ref_fields, data)
 
         # Strip None _id to allow MongoDB to generate it
         if data.get("_id") is None:

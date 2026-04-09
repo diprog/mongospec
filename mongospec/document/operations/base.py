@@ -31,21 +31,11 @@ class BaseOperations:
 
     def _validate_refs(self: T) -> None:
         """Ensure all referenced MongoDocument fields have been saved (have _id)."""
-        from mongospec.refs import is_document_type
+        from mongospec.refs import iter_ref_documents
 
-        for field_name, ref_info in self._get_ref_fields().items():
-            value = getattr(self, field_name, None)
-            if value is None:
-                continue
-            if ref_info.is_list:
-                for item in value:
-                    if is_document_type(type(item)) and item._id is None:
-                        raise ValueError(
-                            f"Cannot reference unsaved {ref_info.document_class.__name__} "
-                            f"in field '{field_name}' — insert it first"
-                        )
-            elif is_document_type(type(value)) and value._id is None:
+        for ref_document in iter_ref_documents(self._get_ref_fields(), self):
+            if ref_document._id is None:
                 raise ValueError(
-                    f"Cannot reference unsaved {ref_info.document_class.__name__} "
-                    f"in field '{field_name}' — insert it first"
+                    f"Cannot reference unsaved {ref_document.__class__.__name__} "
+                    "— insert it first"
                 )

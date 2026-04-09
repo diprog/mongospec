@@ -70,18 +70,11 @@ class UpdateOperationsMixin(BaseOperations):
 
     async def _save_resolved_refs(self: T) -> None:
         """Save all resolved MongoDocument reference fields."""
-        from mongospec.refs import is_document_type
+        from mongospec.refs import iter_ref_documents
 
-        for field_name, ref_info in self._get_ref_fields().items():
-            value = getattr(self, field_name, None)
-            if value is None:
-                continue
-            if ref_info.is_list:
-                for item in value:
-                    if is_document_type(type(item)) and item._id is not None:
-                        await item.save(save_refs=True)
-            elif is_document_type(type(value)) and value._id is not None:
-                await value.save(save_refs=True)
+        for ref_document in iter_ref_documents(self._get_ref_fields(), self):
+            if ref_document._id is not None:
+                await ref_document.save(save_refs=True)
 
     @classmethod
     async def update_one(
