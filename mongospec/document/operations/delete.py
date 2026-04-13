@@ -47,12 +47,15 @@ class DeleteOperationsMixin(BaseOperations):
     async def delete_one(
             cls: type[T],
             filter: Document | str | None = None,
+            *,
+            skip_hooks: bool = False,
             **kwargs: Unpack[DeleteOptions]
     ) -> int:
         """
         Delete single document matching filter.
 
         :param filter: Query to match document
+        :param skip_hooks: Skip ``__pre_find__`` hook (default: False)
         :param kwargs: Additional arguments for delete_one()
         :return: Number of deleted documents (0 or 1)
 
@@ -61,19 +64,25 @@ class DeleteOperationsMixin(BaseOperations):
             # Delete by query
             await User.delete_one({"email": "inactive@example.com"})
         """
-        result = await cls._get_collection().delete_one(filter, **kwargs)
+        query = filter or {}
+        if not skip_hooks and not isinstance(query, str):
+            query = await cls.__pre_find__(query)
+        result = await cls._get_collection().delete_one(query, **kwargs)
         return result["deleted_count"]
 
     @classmethod
     async def delete_many(
             cls: type[T],
             filter: Document,
+            *,
+            skip_hooks: bool = False,
             **kwargs: Unpack[DeleteOptions]
     ) -> int:
         """
         Delete multiple documents matching filter.
 
         :param filter: Query to match documents
+        :param skip_hooks: Skip ``__pre_find__`` hook (default: False)
         :param kwargs: Additional arguments for delete_many()
         :return: Number of deleted documents
 
@@ -82,7 +91,10 @@ class DeleteOperationsMixin(BaseOperations):
             # Bulk delete
             await User.delete_many({"status": "banned"})
         """
-        result = await cls._get_collection().delete_many(filter, **kwargs)
+        query = filter or {}
+        if not skip_hooks:
+            query = await cls.__pre_find__(query)
+        result = await cls._get_collection().delete_many(query, **kwargs)
         return result["deleted_count"]
 
     @classmethod
@@ -93,6 +105,10 @@ class DeleteOperationsMixin(BaseOperations):
     ) -> int:
         """
         Delete document by ID.
+
+        Note: this method bypasses ``__pre_find__``. Deleting a document
+        whose ``_id`` is known is always considered a direct addressed
+        operation and is not subject to scope filters.
 
         :param document_id: Document ID to delete (ObjectId or string)
         :param kwargs: Additional arguments for delete_one()

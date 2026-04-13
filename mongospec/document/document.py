@@ -131,23 +131,27 @@ class MongoDocument(
         """
         raise NotImplementedError(f"Type {expected_type} not supported in dec_hook")
 
-    def __pre_save__(self) -> None:
+    async def __pre_save__(self) -> None:
         """
         Hook called before instance-level write operations (insert, save).
         Override in subclasses to modify fields before persisting.
 
+        Async — implementations may await other documents or external state.
+
         .. code-block:: python
 
-            def __pre_save__(self) -> None:
+            async def __pre_save__(self) -> None:
                 self.updated_at = datetime.now(UTC)
         """
 
     @classmethod
-    def __pre_update__(cls, update: dict[str, Any]) -> dict[str, Any]:
+    async def __pre_update__(cls, update: dict[str, Any]) -> dict[str, Any]:
         """
         Hook called before class-level update operations
         (update_one, update_many, update_by_id, find_one_and_update).
         Override in subclasses to inject extra update operators.
+
+        Async — implementations may await other documents or external state.
 
         :param update: The MongoDB update document.
         :return: The (possibly modified) update document.
@@ -155,11 +159,53 @@ class MongoDocument(
         .. code-block:: python
 
             @classmethod
-            def __pre_update__(cls, update: dict[str, Any]) -> dict[str, Any]:
+            async def __pre_update__(cls, update: dict[str, Any]) -> dict[str, Any]:
                 update.setdefault("$set", {})["updated_at"] = datetime.now(UTC)
                 return update
         """
         return update
+
+    @classmethod
+    async def __pre_find__(cls, filter: dict[str, Any]) -> dict[str, Any]:
+        """
+        Hook called before class-level operations that accept a query filter:
+        ``find``, ``find_one``, ``find_by_id``, ``find_all``, ``count``,
+        ``exists``, ``delete_one``, ``delete_many``, ``delete_by_id``,
+        ``update_one``, ``update_many``, ``update_by_id``,
+        ``find_one_and_update``.
+
+        Override in subclasses to inject an implicit scope filter (tenant,
+        soft-delete, date-range limitation, etc.). Because the hook is async,
+        implementations can freely await other documents or external settings.
+
+        .. note::
+            ``aggregate()`` does NOT route through this hook — pipelines have
+            multiple stages and automatic mutation is unsafe. Use explicit
+            ``$match`` stages in aggregations.
+
+        .. note::
+            Instance-level ``delete()`` (removing an object by its own ``_id``)
+            also bypasses this hook — deleting your own record is always valid.
+
+        All class-level read/update/delete methods accept a
+        ``skip_hooks: bool = False`` keyword argument to bypass this hook
+        (and :meth:`__pre_update__`) explicitly.
+
+        :param filter: The incoming MongoDB query filter (never None).
+        :return: The (possibly modified) filter.
+
+        .. code-block:: python
+
+            class PayRequest(Document):
+                @classmethod
+                async def __pre_find__(cls, filter):
+                    settings = await system_settings.get()
+                    if settings.current_year_only:
+                        year_start = datetime(datetime.now(UTC).year, 1, 1, tzinfo=UTC)
+                        return {**filter, "created_at": {"$gte": year_start}}
+                    return filter
+        """
+        return filter
 
     def enc_hook(self, obj: Any) -> Any:
         """

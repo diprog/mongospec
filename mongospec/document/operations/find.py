@@ -128,6 +128,7 @@ class FindOperationsMixin(BaseOperations):
         filter: Document | str | None = None,
         *,
         resolve_refs: bool = True,
+        skip_hooks: bool = False,
         **kwargs: Unpack[FindOneOptions],
     ) -> T | None:
         """
@@ -135,10 +136,14 @@ class FindOperationsMixin(BaseOperations):
 
         :param filter: MongoDB query filter
         :param resolve_refs: Resolve MongoDocument reference fields (default: True)
+        :param skip_hooks: Skip ``__pre_find__`` hook (default: False)
         :param kwargs: Additional arguments for find_one()
         :return: Document instance or None if not found
         """
-        doc = await cls._get_collection().find_one(filter or {}, **kwargs)
+        query = filter or {}
+        if not skip_hooks and not isinstance(query, str):
+            query = await cls.__pre_find__(query)
+        doc = await cls._get_collection().find_one(query, **kwargs)
         if doc is None:
             return None
         if resolve_refs:
@@ -154,6 +159,7 @@ class FindOperationsMixin(BaseOperations):
         document_id: ObjectId | str,
         *,
         resolve_refs: bool = True,
+        skip_hooks: bool = False,
         **kwargs: Unpack[FindOneOptions],
     ) -> T | None:
         """
@@ -161,12 +167,18 @@ class FindOperationsMixin(BaseOperations):
 
         :param document_id: Document ID as ObjectId or string
         :param resolve_refs: Resolve MongoDocument reference fields (default: True)
+        :param skip_hooks: Skip ``__pre_find__`` hook (default: False)
         :param kwargs: Additional arguments for find_one()
         :return: Document instance or None if not found
         """
         if isinstance(document_id, str):
             document_id = ObjectId(document_id)
-        return await cls.find_one({"_id": document_id}, resolve_refs=resolve_refs, **kwargs)
+        return await cls.find_one(
+            {"_id": document_id},
+            resolve_refs=resolve_refs,
+            skip_hooks=skip_hooks,
+            **kwargs,
+        )
 
     @classmethod
     def find(
@@ -174,6 +186,7 @@ class FindOperationsMixin(BaseOperations):
         filter: Document | None = None,
         *,
         resolve_refs: bool = True,
+        skip_hooks: bool = False,
         **kwargs: Unpack[FindOptions],
     ) -> DeferredCursor:
         """Create a cursor for query results.
@@ -197,7 +210,10 @@ class FindOperationsMixin(BaseOperations):
         :returns: DeferredCursor — awaitable object with .to_list() method
         """
         async def _create_cursor():
-            cursor = await cls._get_collection().find(filter or {}, **kwargs)
+            query = filter or {}
+            if not skip_hooks:
+                query = await cls.__pre_find__(query)
+            cursor = await cls._get_collection().find(query, **kwargs)
             return AsyncDocumentCursor(cursor, cls, resolve_refs=resolve_refs)
 
         return DeferredCursor(_create_cursor())
@@ -208,6 +224,7 @@ class FindOperationsMixin(BaseOperations):
         filter: Document | None = None,
         *,
         resolve_refs: bool = True,
+        skip_hooks: bool = False,
         **kwargs: Unpack[FindOptions],
     ) -> list[T]:
         """
@@ -222,7 +239,10 @@ class FindOperationsMixin(BaseOperations):
         :returns: List of loaded document instances.
         :warning: Loads the full result set in memory; may be slow or exhaust memory on large collections.
         """
-        cursor = await cls._get_collection().find(filter, **kwargs)
+        query = filter or {}
+        if not skip_hooks:
+            query = await cls.__pre_find__(query)
+        cursor = await cls._get_collection().find(query, **kwargs)
         docs = await cursor.to_list()
         if resolve_refs:
             ref_fields = cls._get_ref_fields()
@@ -233,29 +253,42 @@ class FindOperationsMixin(BaseOperations):
 
     @classmethod
     async def count(
-        cls: type[T], filter: Document | None = None, **kwargs: Unpack[CountOptions]
+        cls: type[T],
+        filter: Document | None = None,
+        *,
+        skip_hooks: bool = False,
+        **kwargs: Unpack[CountOptions],
     ) -> int:
         """
         Count documents matching the filter.
 
         :param filter: MongoDB query filter
+        :param skip_hooks: Skip ``__pre_find__`` hook (default: False)
         :param kwargs: Additional arguments for count_documents()
         :return: Number of matching documents
         """
-        return await cls._get_collection().count_documents(filter or {}, **kwargs)
+        query = filter or {}
+        if not skip_hooks:
+            query = await cls.__pre_find__(query)
+        return await cls._get_collection().count_documents(query, **kwargs)
 
     @classmethod
     async def exists(
-        cls: type[T], filter: dict[str, Any], **kwargs: Unpack[CountOptions]
+        cls: type[T],
+        filter: dict[str, Any],
+        *,
+        skip_hooks: bool = False,
+        **kwargs: Unpack[CountOptions],
     ) -> bool:
         """
         Check if any document matches the filter.
 
         :param filter: MongoDB query filter
+        :param skip_hooks: Skip ``__pre_find__`` hook (default: False)
         :param kwargs: Additional arguments for count_documents()
         :return: True if at least one match exists
         """
-        count = await cls.count(filter, **kwargs)
+        count = await cls.count(filter, skip_hooks=skip_hooks, **kwargs)
         return count > 0
 
     @classmethod

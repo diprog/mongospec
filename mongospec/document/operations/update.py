@@ -51,7 +51,7 @@ class UpdateOperationsMixin(BaseOperations):
         if save_refs:
             await self._save_resolved_refs()
 
-        self.__pre_save__()
+        await self.__pre_save__()
         collection = self._get_collection()
         result = await collection.replace_one(
             {"_id": self._id},
@@ -81,6 +81,8 @@ class UpdateOperationsMixin(BaseOperations):
             cls: type[T],
             filter: Document,
             update: Document | Sequence[Document],
+            *,
+            skip_hooks: bool = False,
             **kwargs: Unpack[UpdateOptions]
     ) -> int:
         """
@@ -88,6 +90,7 @@ class UpdateOperationsMixin(BaseOperations):
 
         :param filter: Query to match documents
         :param update: MongoDB update operations (e.g., {"$set": {"field": value}})
+        :param skip_hooks: Skip ``__pre_find__`` and ``__pre_update__`` hooks (default: False)
         :param kwargs: Additional arguments for update_one()
         :return: Number of modified documents
 
@@ -99,7 +102,9 @@ class UpdateOperationsMixin(BaseOperations):
                 {"$inc": {"login_count": 1}}
             )
         """
-        update = cls.__pre_update__(update)
+        if not skip_hooks:
+            filter = await cls.__pre_find__(filter)
+            update = await cls.__pre_update__(update)
         result = await cls._get_collection().update_one(filter, update, **kwargs)
         return result["modified_count"]
 
@@ -108,6 +113,8 @@ class UpdateOperationsMixin(BaseOperations):
             cls: type[T],
             filter: Document,
             update: Document | Sequence[Document],
+            *,
+            skip_hooks: bool = False,
             **kwargs: Unpack[UpdateOptions]
     ) -> int:
         """
@@ -115,10 +122,13 @@ class UpdateOperationsMixin(BaseOperations):
 
         :param filter: Query to match documents
         :param update: MongoDB update operations
+        :param skip_hooks: Skip ``__pre_find__`` and ``__pre_update__`` hooks (default: False)
         :param kwargs: Additional arguments for update_many()
         :return: Number of modified documents
         """
-        update = cls.__pre_update__(update)
+        if not skip_hooks:
+            filter = await cls.__pre_find__(filter)
+            update = await cls.__pre_update__(update)
         result = await cls._get_collection().update_many(filter, update, **kwargs)
         return result["modified_count"]
 
@@ -127,13 +137,20 @@ class UpdateOperationsMixin(BaseOperations):
             cls: type[T],
             document_id: ObjectId | str,
             update: Document | Sequence[Document],
+            *,
+            skip_hooks: bool = False,
             **kwargs: Unpack[UpdateOptions]
     ) -> int:
         """
         Update document by its ID with atomic operations.
 
+        Note: addressing by ``_id`` bypasses ``__pre_find__`` — direct
+        addressed updates are not subject to scope filters.
+        ``__pre_update__`` still runs unless ``skip_hooks=True``.
+
         :param document_id: Document ID to update
         :param update: MongoDB update operations
+        :param skip_hooks: Skip ``__pre_update__`` hook (default: False)
         :param kwargs: Additional arguments for update_one()
         :return: Number of modified documents (0 or 1)
 
@@ -146,7 +163,8 @@ class UpdateOperationsMixin(BaseOperations):
             )
         """
         document_id = ObjectId(document_id) if isinstance(document_id, str) else document_id
-        update = cls.__pre_update__(update)
+        if not skip_hooks:
+            update = await cls.__pre_update__(update)
         result = await cls._get_collection().update_one(
             {"_id": document_id},
             update,
@@ -162,6 +180,7 @@ class UpdateOperationsMixin(BaseOperations):
             return_updated: bool = True,
             *,
             resolve_refs: bool = True,
+            skip_hooks: bool = False,
             **kwargs: Unpack[FindOneAndUpdateOptions]
     ) -> T | None:
         """
@@ -171,6 +190,7 @@ class UpdateOperationsMixin(BaseOperations):
         :param update: MongoDB update operations
         :param return_updated: Return updated document (default: True)
         :param resolve_refs: Resolve MongoDocument reference fields (default: True)
+        :param skip_hooks: Skip ``__pre_find__`` and ``__pre_update__`` hooks (default: False)
         :param kwargs: Additional arguments for find_one_and_update()
         :return: Updated document or None if not found
 
@@ -183,7 +203,9 @@ class UpdateOperationsMixin(BaseOperations):
                 return_updated=True
             )
         """
-        update = cls.__pre_update__(update)
+        if not skip_hooks:
+            filter = await cls.__pre_find__(filter)
+            update = await cls.__pre_update__(update)
         options = {
             "return_document": "after" if return_updated else "before",
             **kwargs

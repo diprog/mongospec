@@ -50,7 +50,7 @@ class ExplodingPost(MongoDocument):
     author: User
     tags: list[Tag] = []
 
-    def __pre_save__(self) -> None:
+    async def __pre_save__(self) -> None:
         if self.title == "explode":
             raise RuntimeError("boom")
 

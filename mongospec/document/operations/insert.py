@@ -196,7 +196,7 @@ class InsertOperationsMixin(BaseOperations):
         """
         self._validate_document_type(self)
         self._validate_refs()
-        self.__pre_save__()
+        await self.__pre_save__()
         result = await self._get_collection().insert_one(
             self.dump(),
             **kwargs
@@ -270,7 +270,7 @@ class InsertOperationsMixin(BaseOperations):
         """
         cls._validate_document_type(document)
         document._validate_refs()
-        document.__pre_save__()
+        await document.__pre_save__()
         result = await cls._get_collection().insert_one(
             document.dump(),
             **kwargs
@@ -319,7 +319,7 @@ class InsertOperationsMixin(BaseOperations):
             raise TypeError(f"All documents must be of type {cls.__name__}")
 
         for d in documents:
-            d.__pre_save__()
+            await d.__pre_save__()
 
         result = await cls._get_collection().insert_many(
             [d.dump() for d in documents],
