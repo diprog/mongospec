@@ -5,11 +5,13 @@ Provides collection name resolution and runtime collection access.
 Uses class name as fallback when __collection_name__ is not specified.
 """
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, ClassVar, Self, Sequence, final
 
 import mongojet
 import msgspec
 from bson import ObjectId, int64
+from bson.decimal128 import Decimal128
 from msgspec import StructMeta
 
 from .operations import (
@@ -45,6 +47,10 @@ def default_dec_hook(expected_type: type, obj: Any) -> Any:
     if isinstance(obj, int64.Int64):
         return int(obj)
 
+    # Same for BSON Decimal128 — surface as plain Decimal.
+    if isinstance(obj, Decimal128):
+        return obj.to_decimal()
+
     if expected_type is ObjectId:
         if isinstance(obj, ObjectId):
             return obj
@@ -59,9 +65,23 @@ def default_dec_hook(expected_type: type, obj: Any) -> Any:
 def default_enc_hook(obj: Any) -> Any:
     """Default encoding hook for custom types.
 
+    Symmetric to :func:`default_dec_hook` — BSON helper types that arrive
+    inside ``Any``-typed fields (``meta`` dicts, free-form payloads, etc.)
+    are converted back to the closest plain Python type so ``to_builtins``
+    can serialize them without a custom ``enc_hook`` per document.
+
     :param obj: The object to encode.
     :raises NotImplementedError: If the type is not supported.
     """
+    if isinstance(obj, int64.Int64):
+        return int(obj)
+
+    if isinstance(obj, Decimal128):
+        return obj.to_decimal()
+
+    if isinstance(obj, Decimal):
+        return str(obj)
+
     raise NotImplementedError(f"Type {type(obj)} not supported")
 
 
