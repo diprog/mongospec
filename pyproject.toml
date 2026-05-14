@@ -1,6 +1,6 @@
 [project]
 name = "mongospec"
-version = "0.3.2"
+version = "0.3.3"
 authors = [
     {name = "Diprog", email = "diprog991@gmail.com"}
 ]
@@ -10,8 +10,8 @@ requires-python = ">=3.13"
 license = "MIT"
 keywords = ["mongodb", "odm", "async", "database", "asyncio", "msgspec", "mongojet"]
 dependencies = [
-    "mongojet~=0.5.2",
-    "msgspec~=0.20.0",
+    "mongojet~=0.5.4",
+    "msgspec~=0.21.1",
 ]
 classifiers = [
     "Operating System :: MacOS",
